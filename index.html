@@ -129,17 +129,33 @@ function App() {
   const [notifPermission, setNotifPermission] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const notifRef = useRef(null);
 
   // Persist state
   useEffect(() => { try { localStorage.setItem("sl_v3", JSON.stringify(state)); } catch (_) {} }, [state]);
 
-  // Request notification permission on mount
+  // Show first-launch notification prompt (only once, only if not yet decided)
   useEffect(() => {
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission().then(p => setNotifPermission(p));
+    const asked = localStorage.getItem("sl_notif_asked");
+    if (!asked && typeof Notification !== "undefined" && Notification.permission === "default") {
+      // Small delay so the app renders first, then popup appears
+      const t = setTimeout(() => setShowNotifPrompt(true), 1200);
+      return () => clearTimeout(t);
     }
   }, []);
+
+  async function handleNotifAllow() {
+    localStorage.setItem("sl_notif_asked", "1");
+    setShowNotifPrompt(false);
+    // This tap-triggered call is what makes iOS show the native dialog
+    const p = await Notification.requestPermission();
+    setNotifPermission(p);
+  }
+  function handleNotifDeny() {
+    localStorage.setItem("sl_notif_asked", "1");
+    setShowNotifPrompt(false);
+  }
 
   // Scheduled reminder system
   useEffect(() => {
@@ -313,6 +329,31 @@ function App() {
       <button style={{position:"fixed",bottom:24,left:14,background:"none",border:"1px solid #252540",color:"#3a3a5a",padding:"7px 10px",borderRadius:3,fontSize:9,cursor:"pointer",zIndex:50,letterSpacing:1}} onClick={() => { setNewName(state.hunter.name); setModal("settings"); }}>⚙ NAME</button>
 
       {toast && <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#0f2a0f":toast.type==="danger"?"#2a0f0f":"#0f0f2a",border:"1px solid "+(toast.type==="success"?"#4ade80":toast.type==="danger"?"#ef4444":"#a78bfa"),padding:"8px 18px",borderRadius:4,fontSize:12,color:"#e0d8cc",zIndex:200,whiteSpace:"nowrap",pointerEvents:"none"}}>{toast.msg}</div>}
+
+      {/* First-launch notification permission popup */}
+      {showNotifPrompt && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 40px 0"}}>
+          <div style={{background:"#0e0e20",border:"1px solid #3a2a6a",borderRadius:16,padding:"28px 24px",width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 0 60px rgba(167,139,250,0.25)"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:40,marginBottom:8}}>⚔</div>
+              <div style={{fontSize:16,fontWeight:"bold",color:"#a78bfa",letterSpacing:2,fontFamily:"'Courier New',monospace"}}>"SOLO LEVELING TRACKER"</div>
+              <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:3,marginTop:4,fontFamily:"'Courier New',monospace"}}>WOULD LIKE TO SEND YOU NOTIFICATIONS</div>
+            </div>
+            <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:8,padding:"12px 14px",marginBottom:20}}>
+              <div style={{fontSize:11,color:"#b0a8c8",lineHeight:1.7,fontFamily:"'Courier New',monospace"}}>
+                Notifications will be used to send you <span style={{color:"#a78bfa"}}>daily progress reminders</span> and alerts when quests are completed or failed.<br/><br/>
+                <span style={{color:"#4ade80",fontSize:10}}>✓ Quest completion alerts</span><br/>
+                <span style={{color:"#4ade80",fontSize:10}}>✓ Daily progress check-ins</span><br/>
+                <span style={{color:"#ef4444",fontSize:10}}>⚠ Punishment task warnings</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={handleNotifDeny} style={{flex:1,padding:"13px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>DON'T ALLOW</button>
+              <button onClick={handleNotifAllow} style={{flex:2,padding:"13px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1,fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.4)"}}>ALLOW</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal === "goal" && (
         <div style={C.overlay}>
