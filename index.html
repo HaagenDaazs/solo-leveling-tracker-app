@@ -100,6 +100,30 @@ function playBeep(freq, dur, type) {
 }
 function playSuccess() { [523,659,784,1047].forEach((f,i) => setTimeout(() => playBeep(f, 0.2), i * 100)); }
 function playFail() { [300,200].forEach((f,i) => setTimeout(() => playBeep(f, 0.3, "sawtooth"), i * 150)); }
+function playClick() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Layer 1: tonal snap — pitch drops fast for that satisfying "tock"
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = "sine";
+    o.frequency.setValueAtTime(1100, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.045);
+    g.gain.setValueAtTime(0.28, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.07);
+    // Layer 2: short noise transient for the "click" bite
+    const bufLen = Math.floor(ctx.sampleRate * 0.018);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+    const ns = ctx.createBufferSource(), ng = ctx.createGain();
+    ns.buffer = buf; ns.connect(ng); ng.connect(ctx.destination);
+    ng.gain.setValueAtTime(0.18, ctx.currentTime);
+    ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.018);
+    ns.start(ctx.currentTime); ns.stop(ctx.currentTime + 0.018);
+  } catch(_) {}
+}
 
 // ─── Service Worker Registration ─────────────────────────────────────────────
 if ("serviceWorker" in navigator) {
@@ -313,7 +337,7 @@ function App() {
       </div>
       <div style={C.nav}>
         {["dashboard","goals","log","notifs"].map(v =>
-          <button key={v} style={C.navBtn(v)} onClick={() => setView(v)}>
+          <button key={v} style={C.navBtn(v)} onClick={() => { playClick(); setView(v); }}>
             {v === "notifs" ? "NOTIF" : v.toUpperCase()}
           </button>
         )}
@@ -325,8 +349,8 @@ function App() {
         {view === "notifs" && <Notifs notifications={state.notifications} C={C} notifInterval={notifInterval} setNotifInterval={setNotifInterval} notifPermission={notifPermission} setNotifPermission={setNotifPermission} />}
       </div>
 
-      <button style={{position:"fixed",bottom:20,right:16,width:50,height:50,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:24,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 16px rgba(167,139,250,0.4)"}} onClick={() => { setGoalForm(BLANK_GOAL); setModal("goal"); playBeep(660, 0.1); }}>+</button>
-      <button style={{position:"fixed",bottom:24,left:14,background:"none",border:"1px solid #252540",color:"#3a3a5a",padding:"7px 10px",borderRadius:3,fontSize:9,cursor:"pointer",zIndex:50,letterSpacing:1}} onClick={() => { setNewName(state.hunter.name); setModal("settings"); }}>⚙ NAME</button>
+      <button style={{position:"fixed",bottom:20,right:16,width:50,height:50,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:24,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 16px rgba(167,139,250,0.4)"}} onClick={() => { playClick(); setGoalForm(BLANK_GOAL); setModal("goal"); }}>+</button>
+      <button style={{position:"fixed",bottom:24,left:14,background:"none",border:"1px solid #252540",color:"#3a3a5a",padding:"7px 10px",borderRadius:3,fontSize:9,cursor:"pointer",zIndex:50,letterSpacing:1}} onClick={() => { playClick(); setNewName(state.hunter.name); setModal("settings"); }}>⚙ NAME</button>
 
       {toast && <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#0f2a0f":toast.type==="danger"?"#2a0f0f":"#0f0f2a",border:"1px solid "+(toast.type==="success"?"#4ade80":toast.type==="danger"?"#ef4444":"#a78bfa"),padding:"8px 18px",borderRadius:4,fontSize:12,color:"#e0d8cc",zIndex:200,whiteSpace:"nowrap",pointerEvents:"none"}}>{toast.msg}</div>}
 
@@ -348,8 +372,8 @@ function App() {
               </div>
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={handleNotifDeny} style={{flex:1,padding:"13px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>DON'T ALLOW</button>
-              <button onClick={handleNotifAllow} style={{flex:2,padding:"13px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1,fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.4)"}}>ALLOW</button>
+              <button onClick={()=>{playClick();handleNotifDeny();}} style={{flex:1,padding:"13px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>DON'T ALLOW</button>
+              <button onClick={()=>{playClick();handleNotifAllow();}} style={{flex:2,padding:"13px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1,fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.4)"}}>ALLOW</button>
             </div>
           </div>
         </div>
@@ -360,7 +384,7 @@ function App() {
           <div style={C.box}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>REGISTER QUEST</div>
-              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => setModal(null)}>✕</button>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => { playClick(); setModal(null); }}>✕</button>
             </div>
             <label style={C.lbl}>Goal Name *</label>
             <input style={C.inp} placeholder="e.g. Pull Ups" value={goalForm.name} onChange={e => handleGoalField("name", e.target.value)} />
@@ -372,7 +396,7 @@ function App() {
             <input style={C.inp} type="number" placeholder="0" min="0" value={goalForm.currentLevel} onChange={e => handleGoalField("currentLevel", e.target.value)} />
             <label style={C.lbl}>Duration (weeks)</label>
             <input style={C.inp} type="number" placeholder="8" min="1" value={goalForm.durationWeeks} onChange={e => handleGoalField("durationWeeks", e.target.value)} />
-            <button style={{width:"100%",padding:"11px",border:"none",borderRadius:3,fontSize:12,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",fontWeight:"bold",marginTop:6}} onClick={submitGoal}>✓ ACCEPT QUEST</button>
+            <button style={{width:"100%",padding:"11px",border:"none",borderRadius:3,fontSize:12,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",fontWeight:"bold",marginTop:6}} onClick={() => { playClick(); submitGoal(); }}>✓ ACCEPT QUEST</button>
           </div>
         </div>
       )}
@@ -381,13 +405,13 @@ function App() {
           <div style={C.box}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>SETTINGS</div>
-              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => setModal(null)}>✕</button>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => { playClick(); setModal(null); }}>✕</button>
             </div>
             <label style={C.lbl}>Hunter Name</label>
             <input style={C.inp} value={newName} onChange={e => setNewName(e.target.value)} />
-            <button style={{width:"100%",padding:10,border:"none",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",marginBottom:10}} onClick={doRename}>UPDATE NAME</button>
+            <button style={{width:"100%",padding:10,border:"none",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",marginBottom:10}} onClick={() => { playClick(); doRename(); }}>UPDATE NAME</button>
             <div style={{borderTop:"1px solid #1e1e35",paddingTop:12,marginTop:4}} />
-            <button style={{width:"100%",padding:10,border:"1px solid #3a1a1a",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#1a0808",color:"#ef4444"}} onClick={doReset}>RESET ALL DATA</button>
+            <button style={{width:"100%",padding:10,border:"1px solid #3a1a1a",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#1a0808",color:"#ef4444"}} onClick={() => { playClick(); doReset(); }}>RESET ALL DATA</button>
           </div>
         </div>
       )}
@@ -413,7 +437,7 @@ function TaskCard({ task, onComplete, onFail, C }) {
   const col = task.penalty ? "#ef4444" : "#a78bfa";
   return (
     <div style={C.taskBox(task.penalty)}>
-      <div style={{display:"flex",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}} onClick={() => setOpen(o => !o)}>
+      <div style={{display:"flex",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}} onClick={() => { playClick(); setOpen(o => !o); }}>
         <div style={{flex:1}}>
           {task.penalty && <div style={{fontSize:9,color:"#ef4444",letterSpacing:2,marginBottom:2}}>⚠ PUNISHMENT</div>}
           <div style={{fontSize:12,color:"#e0d8cc"}}>{task.description}</div>
