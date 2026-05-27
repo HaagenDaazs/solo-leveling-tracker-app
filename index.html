@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Solo Leveling Tracker</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#07070f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SL Tracker" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #07070f; }
+    body { padding-top: env(safe-area-inset-top); }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0a0a18; }
+    ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+    input, button { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const RANKS = ["E","D","C","B","A","S","SS","SSS","National"];
+const RANK_THRESHOLDS = [0,500,1200,2500,4500,7500,11000,16000,22000];
+const RANK_COLORS = {
+  E:"#888", D:"#4ade80", C:"#60a5fa", B:"#a78bfa",
+  A:"#f59e0b", S:"#ef4444", SS:"#f97316", SSS:"#ec4899", National:"#fbbf24"
+};
+
+const REMINDER_MSGS = [
+  (name, done, total) => `${name}, you have ${total - done} quest(s) remaining today. The dungeon waits for no one.`,
+  (name, done, total) => done === 0
+    ? `${name}. Zero quests completed. A hunter who doesn't hunt is just prey.`
+    : `Progress: ${done}/${total} quests done. Keep pushing, ${name}.`,
+  (name, done, total) => done >= total && total > 0
+    ? `All quests complete. ${name} is worthy of their rank.`
+    : `${name} — ${total - done} task(s) unfinished. Arise.`,
+  (name, done, total) => `Daily Report — ${name}: ${done} complete, ${total - done} pending. Your rank depends on this.`,
+];
+
+const BLANK_GOAL = { name:"", target:"", unit:"reps", currentLevel:"0", durationWeeks:"8" };
+const INIT_STATE = {
+  hunter: { name:"Hunter", xp:0, totalXP:0, streak:0, daysMissed:0 },
+  goals:[], tasks:[], notifications:[], log:[]
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function getRank(xp) {
+  let r = "E";
+  for (let i = RANK_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (xp >= RANK_THRESHOLDS[i]) { r = RANKS[i]; break; }
+  }
+  return r;
+}
+function getXPInfo(xp) {
+  const rank = getRank(xp), idx = RANKS.indexOf(rank);
+  if (idx >= RANKS.length - 1) return { pct: 100, nextRank: "MAX" };
+  const cur = RANK_THRESHOLDS[idx], nxt = RANK_THRESHOLDS[idx + 1];
+  return { pct: Math.round(((xp - cur) / (nxt - cur)) * 100), nextRank: RANKS[idx + 1] };
+}
+function makeTask(goal, week, penalty = false) {
+  const weeks = goal.durationWeeks || 8;
+  const step = (goal.target - goal.currentLevel) / weeks;
+  const base = Math.round(Math.max(goal.currentLevel, goal.currentLevel + step * week));
+  const value = penalty ? Math.round(base * 1.4) : base;
+  return {
+    id: Date.now() + Math.random(),
+    goalId: goal.id,
+    description: value + " " + goal.unit + " – " + goal.name,
+    detail: "Complete " + value + " " + goal.unit + " with proper form",
+    value, unit: goal.unit,
+    xpReward: Math.round(50 + value * 2 + week * 10),
+    penalty, completed: false, failed: false, weekNumber: week,
+  };
+}
+function playBeep(freq, dur, type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type || "square"; o.frequency.value = freq || 440;
+    g.gain.setValueAtTime(0.2, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.15));
+    o.start(); o.stop(ctx.currentTime + (dur || 0.15));
+  } catch (_) {}
+}
+function playSuccess() { [523,659,784,1047].forEach((f,i) => setTimeout(() => playBeep(f, 0.2), i * 100)); }
+function playFail() { [300,200].forEach((f,i) => setTimeout(() => playBeep(f, 0.3, "sawtooth"), i * 150)); }
+
+// ─── Service Worker Registration ─────────────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+// Send a notification via the service worker (shows as real system notification)
+async function sendSystemNotif(title, body) {
+  if (Notification.permission !== "granted") return;
+  const reg = await navigator.serviceWorker.ready;
+  reg.active.postMessage({ type: "SHOW_NOTIFICATION", title, body });
+}
+
+// ─── Main App ────────────────────────────────────────────────────────────────
+function App() {
+  const [state, setState] = useState(() => {
+    try { const s = localStorage.getItem("sl_v3"); return s ? JSON.parse(s) : INIT_STATE; } catch { return INIT_STATE; }
+  });
+  const [view, setView] = useState("dashboard");
+  const [modal, setModal] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [goalForm, setGoalForm] = useState(BLANK_GOAL);
+  const [newName, setNewName] = useState("");
+  const [notifInterval, setNotifInterval] = useState(60);
+  const [notifPermission, setNotifPermission] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
+  const notifRef = useRef(null);
+
+  // Persist state
+  useEffect(() => { try { localStorage.setItem("sl_v3", JSON.stringify(state)); } catch (_) {} }, [state]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().then(p => setNotifPermission(p));
+    }
+  }, []);
+
+  // Scheduled reminder system
+  useEffect(() => {
+    if (notifRef.current) clearInterval(notifRef.current);
+    const ms = notifInterval * 60 * 1000;
+    notifRef.current = setInterval(() => {
+      setState(prev => {
+        const done = prev.tasks.filter(t => t.completed).length;
+        const active = prev.tasks.filter(t => !t.completed && !t.failed).length;
+        const total = done + active;
+        const msgFn = REMINDER_MSGS[Math.floor(Math.random() * REMINDER_MSGS.length)];
+        const body = msgFn(prev.hunter.name, done, total);
+        // Real system notification
+        sendSystemNotif("Solo Leveling Tracker", body);
+        // Also log to in-app notifs
+        const notif = { id: Date.now(), msg: "[REMINDER] " + body, type: "system", time: new Date().toLocaleTimeString() };
+        return { ...prev, notifications: [notif, ...prev.notifications].slice(0, 20) };
+      });
+      setToast({ msg: "📋 Progress reminder sent", type: "info" });
+      setTimeout(() => setToast(null), 3000);
+      playBeep(660, 0.1);
+    }, ms);
+    return () => clearInterval(notifRef.current);
+  }, [notifInterval]);
+
+  const rank = getRank(state.hunter.xp);
+  const rc = RANK_COLORS[rank];
+  const xi = getXPInfo(state.hunter.xp);
+
+  function showToast(msg, type) {
+    setToast({ msg, type: type || "info" });
+    setTimeout(() => setToast(null), 2800);
+  }
+  function pushNotif(msg, type) {
+    setState(prev => ({
+      ...prev,
+      notifications: [{ id: Date.now(), msg, type: type || "system", time: new Date().toLocaleTimeString() }, ...prev.notifications].slice(0, 20)
+    }));
+  }
+  function handleGoalField(field, value) {
+    setGoalForm(prev => ({ ...prev, [field]: value }));
+  }
+  function submitGoal() {
+    const name = (goalForm.name || "").trim();
+    const target = parseFloat(goalForm.target);
+    if (!name || isNaN(target) || target <= 0) { showToast("Fill in Goal Name and Target Value", "danger"); return; }
+    const goal = {
+      id: Date.now(), name, target,
+      unit: (goalForm.unit || "reps").trim() || "reps",
+      currentLevel: parseFloat(goalForm.currentLevel) || 0,
+      durationWeeks: parseInt(goalForm.durationWeeks) || 8,
+      weekNumber: 0, active: true, completed: false,
+    };
+    const firstTask = makeTask(goal, 1);
+    setState(prev => ({
+      ...prev, goals: [...prev.goals, goal], tasks: [...prev.tasks, firstTask],
+      log: [{ id: Date.now(), text: "Registered goal: " + goal.name, time: new Date().toLocaleString() }, ...prev.log].slice(0, 50)
+    }));
+    pushNotif("New quest registered: " + goal.name + ". Your journey begins.", "quest");
+    setModal(null); playBeep(880, 0.2); showToast("Quest added: " + goal.name, "success");
+  }
+  function completeTask(taskId) {
+    setState(prev => {
+      const task = prev.tasks.find(t => t.id === taskId); if (!task) return prev;
+      const xp = task.xpReward;
+      const tasks = prev.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t);
+      const goal = prev.goals.find(g => g.id === task.goalId);
+      let goals = prev.goals, newTasks = tasks;
+      if (goal) {
+        const nw = task.weekNumber + 1;
+        if (nw <= goal.durationWeeks) {
+          goals = goals.map(g => g.id === goal.id ? { ...g, weekNumber: nw } : g);
+          newTasks = [...tasks, makeTask({ ...goal, weekNumber: nw }, nw)];
+        } else {
+          goals = goals.map(g => g.id === goal.id ? { ...g, active: false, completed: true } : g);
+        }
+      }
+      const hunter = { ...prev.hunter, xp: prev.hunter.xp + xp, totalXP: prev.hunter.totalXP + xp, streak: prev.hunter.streak + 1 };
+      const log = [{ id: Date.now(), text: "Completed: " + task.description + " (+" + xp + " XP)", time: new Date().toLocaleString() }, ...prev.log].slice(0, 50);
+      const notifications = [{ id: Date.now(), msg: "Quest complete! +" + xp + " XP gained.", type: "reward", time: new Date().toLocaleTimeString() }, ...prev.notifications].slice(0, 20);
+      sendSystemNotif("Quest Complete! ⚔", "+" + xp + " XP — " + task.description);
+      return { ...prev, tasks: newTasks, hunter, goals, log, notifications };
+    });
+    playSuccess(); showToast("Quest complete! XP gained.", "success");
+  }
+  function failTask(taskId) {
+    setState(prev => {
+      const task = prev.tasks.find(t => t.id === taskId); if (!task) return prev;
+      const tasks = prev.tasks.map(t => t.id === taskId ? { ...t, failed: true } : t);
+      const goal = prev.goals.find(g => g.id === task.goalId);
+      let newTasks = tasks;
+      if (goal) { const pt = makeTask({ ...goal }, task.weekNumber, true); newTasks = [...tasks, pt]; }
+      const hunter = { ...prev.hunter, streak: 0, daysMissed: prev.hunter.daysMissed + 1 };
+      const log = [{ id: Date.now(), text: "FAILED: " + task.description + " — PENALTY issued", time: new Date().toLocaleString() }, ...prev.log].slice(0, 50);
+      const notifications = [{ id: Date.now(), msg: "Quest failed. Punishment task issued.", type: "penalty", time: new Date().toLocaleTimeString() }, ...prev.notifications].slice(0, 20);
+      sendSystemNotif("Quest Failed ⚠", "Punishment task has been issued. Arise and atone.");
+      return { ...prev, tasks: newTasks, hunter, log, notifications };
+    });
+    playFail(); showToast("Quest failed — penalty assigned", "danger");
+  }
+  function doRename() {
+    const n = (newName || "").trim(); if (!n) return;
+    setState(prev => ({ ...prev, hunter: { ...prev.hunter, name: n } }));
+    setModal(null); showToast("Name updated", "success");
+  }
+  function doReset() {
+    if (window.confirm("Reset all data?")) { setState(INIT_STATE); setModal(null); }
+  }
+
+  const activeTasks = state.tasks.filter(t => !t.completed && !t.failed);
+  const completedTasks = state.tasks.filter(t => t.completed);
+
+  const C = {
+    app: { background:"#07070f", minHeight:"100vh", color:"#e0d8cc", fontFamily:"'Courier New',monospace", fontSize:13 },
+    header: { background:"#0a0a18", borderBottom:"1px solid #1e1e35", padding:"12px 14px" },
+    nav: { display:"flex", borderBottom:"1px solid #1e1e35", background:"#080815" },
+    navBtn: (v) => ({ flex:1, padding:"9px 2px", background:"none", border:"none", color:view===v?rc:"#3a3a5a", fontSize:9, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", borderBottom:view===v?"2px solid "+rc:"2px solid transparent" }),
+    content: { padding:"14px 14px 80px" },
+    sysMsg: { fontSize:11, color:"#6a5a8a", letterSpacing:1, marginBottom:14, padding:"7px 10px", borderLeft:"2px solid #3a2a5a", background:"rgba(167,139,250,0.04)" },
+    secHdr: (c) => ({ fontSize:9, color:c, letterSpacing:3, marginBottom:8, marginTop:2, opacity:0.8 }),
+    taskBox: (p) => ({ background:p?"rgba(239,68,68,0.05)":"rgba(167,139,250,0.05)", border:"1px solid "+(p?"#3a1a1a":"#252540"), borderRadius:4, padding:"11px", marginBottom:9 }),
+    inp: { width:"100%", background:"#0d0d1c", border:"1px solid #2a2a4a", color:"#e0d8cc", padding:"9px 10px", borderRadius:3, fontSize:13, marginBottom:10, boxSizing:"border-box", fontFamily:"'Courier New',monospace", outline:"none" },
+    lbl: { fontSize:9, color:"#7a6a9a", letterSpacing:2, display:"block", marginBottom:5, textTransform:"uppercase" },
+    overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.9)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:16 },
+    box: { background:"#0c0c1c", border:"1px solid #3a2a6a", borderRadius:6, padding:18, width:"100%", maxWidth:340, maxHeight:"90vh", overflowY:"auto" },
+  };
+
+  return (
+    <div style={C.app}>
+      <div style={{position:"fixed",inset:0,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px)",pointerEvents:"none",zIndex:1}} />
+      <div style={C.header}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:3}}>SYSTEM</div>
+            <div style={{fontSize:14,fontWeight:"bold",color:rc,letterSpacing:1}}>[{rank}] {state.hunter.name}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:9,color:"#3a3a5a"}}>TOTAL XP</div>
+            <div style={{fontSize:17,fontWeight:"bold",color:"#a78bfa"}}>{state.hunter.xp.toLocaleString()}</div>
+          </div>
+        </div>
+        <div style={{marginTop:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#3a3a5a",marginBottom:3}}>
+            <span>Rank {rank}</span><span>{xi.pct}% → {xi.nextRank}</span>
+          </div>
+          <div style={{height:3,background:"#1a1a2e",borderRadius:2}}>
+            <div style={{height:"100%",width:xi.pct+"%",background:rc,borderRadius:2,transition:"width 0.6s",boxShadow:"0 0 5px "+rc}} />
+          </div>
+        </div>
+        <div style={{display:"flex",gap:14,marginTop:7,fontSize:10}}>
+          <span style={{color:"#4ade80"}}>🔥 {state.hunter.streak}</span>
+          <span style={{color:"#f59e0b"}}>⚔ {completedTasks.length}</span>
+          <span style={{color:"#ef4444"}}>✗ {state.hunter.daysMissed}</span>
+        </div>
+      </div>
+      <div style={C.nav}>
+        {["dashboard","goals","log","notifs"].map(v =>
+          <button key={v} style={C.navBtn(v)} onClick={() => setView(v)}>
+            {v === "notifs" ? "NOTIF" : v.toUpperCase()}
+          </button>
+        )}
+      </div>
+      <div style={C.content}>
+        {view === "dashboard" && <Dashboard activeTasks={activeTasks} completedTasks={completedTasks} goals={state.goals} onComplete={completeTask} onFail={failTask} rc={rc} C={C} />}
+        {view === "goals" && <Goals goals={state.goals} tasks={state.tasks} rc={rc} C={C} />}
+        {view === "log" && <Log log={state.log} C={C} />}
+        {view === "notifs" && <Notifs notifications={state.notifications} C={C} notifInterval={notifInterval} setNotifInterval={setNotifInterval} notifPermission={notifPermission} setNotifPermission={setNotifPermission} />}
+      </div>
+
+      <button style={{position:"fixed",bottom:20,right:16,width:50,height:50,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:24,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 16px rgba(167,139,250,0.4)"}} onClick={() => { setGoalForm(BLANK_GOAL); setModal("goal"); playBeep(660, 0.1); }}>+</button>
+      <button style={{position:"fixed",bottom:24,left:14,background:"none",border:"1px solid #252540",color:"#3a3a5a",padding:"7px 10px",borderRadius:3,fontSize:9,cursor:"pointer",zIndex:50,letterSpacing:1}} onClick={() => { setNewName(state.hunter.name); setModal("settings"); }}>⚙ NAME</button>
+
+      {toast && <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#0f2a0f":toast.type==="danger"?"#2a0f0f":"#0f0f2a",border:"1px solid "+(toast.type==="success"?"#4ade80":toast.type==="danger"?"#ef4444":"#a78bfa"),padding:"8px 18px",borderRadius:4,fontSize:12,color:"#e0d8cc",zIndex:200,whiteSpace:"nowrap",pointerEvents:"none"}}>{toast.msg}</div>}
+
+      {modal === "goal" && (
+        <div style={C.overlay}>
+          <div style={C.box}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>REGISTER QUEST</div>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => setModal(null)}>✕</button>
+            </div>
+            <label style={C.lbl}>Goal Name *</label>
+            <input style={C.inp} placeholder="e.g. Pull Ups" value={goalForm.name} onChange={e => handleGoalField("name", e.target.value)} />
+            <label style={C.lbl}>Target Value *</label>
+            <input style={C.inp} type="number" placeholder="e.g. 20" min="1" value={goalForm.target} onChange={e => handleGoalField("target", e.target.value)} />
+            <label style={C.lbl}>Unit (reps / km / min / sets)</label>
+            <input style={C.inp} placeholder="reps" value={goalForm.unit} onChange={e => handleGoalField("unit", e.target.value)} />
+            <label style={C.lbl}>Current Level (starting point)</label>
+            <input style={C.inp} type="number" placeholder="0" min="0" value={goalForm.currentLevel} onChange={e => handleGoalField("currentLevel", e.target.value)} />
+            <label style={C.lbl}>Duration (weeks)</label>
+            <input style={C.inp} type="number" placeholder="8" min="1" value={goalForm.durationWeeks} onChange={e => handleGoalField("durationWeeks", e.target.value)} />
+            <button style={{width:"100%",padding:"11px",border:"none",borderRadius:3,fontSize:12,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",fontWeight:"bold",marginTop:6}} onClick={submitGoal}>✓ ACCEPT QUEST</button>
+          </div>
+        </div>
+      )}
+      {modal === "settings" && (
+        <div style={C.overlay}>
+          <div style={C.box}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>SETTINGS</div>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => setModal(null)}>✕</button>
+            </div>
+            <label style={C.lbl}>Hunter Name</label>
+            <input style={C.inp} value={newName} onChange={e => setNewName(e.target.value)} />
+            <button style={{width:"100%",padding:10,border:"none",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",marginBottom:10}} onClick={doRename}>UPDATE NAME</button>
+            <div style={{borderTop:"1px solid #1e1e35",paddingTop:12,marginTop:4}} />
+            <button style={{width:"100%",padding:10,border:"1px solid #3a1a1a",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#1a0808",color:"#ef4444"}} onClick={doReset}>RESET ALL DATA</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function Dashboard({ activeTasks, completedTasks, goals, onComplete, onFail, rc, C }) {
+  const penalty = activeTasks.filter(t => t.penalty), normal = activeTasks.filter(t => !t.penalty);
+  return (
+    <div>
+      <div style={C.sysMsg}>▶ Arise. Your daily quests await, hunter.</div>
+      {activeTasks.length === 0 && <div style={{textAlign:"center",padding:"36px 0",color:"#3a3a5a"}}><div style={{fontSize:28,marginBottom:6}}>⚔</div><div style={{fontSize:12}}>No active quests.</div><div style={{fontSize:10,marginTop:3}}>Tap + to register a new goal.</div></div>}
+      {penalty.length > 0 && <><div style={C.secHdr("#ef4444")}>⚠ PUNISHMENT TASKS</div>{penalty.map(t => <TaskCard key={t.id} task={t} onComplete={onComplete} onFail={onFail} C={C} />)}</>}
+      {normal.length > 0 && <><div style={C.secHdr(rc)}>DAILY QUESTS</div>{normal.map(t => <TaskCard key={t.id} task={t} onComplete={onComplete} onFail={onFail} C={C} />)}</>}
+      {completedTasks.length > 0 && <><div style={C.secHdr("#3a3a5a")}>COMPLETED</div>{completedTasks.slice(0, 5).map(t => <div key={t.id} style={{background:"rgba(74,222,128,0.04)",border:"1px solid #1a2e1a",borderRadius:4,padding:"9px 11px",marginBottom:7,opacity:0.6,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,textDecoration:"line-through",color:"#3a5a3a"}}>{t.description}</span><span style={{color:"#4ade80",fontSize:10}}>+{t.xpReward} XP</span></div>)}</>}
+    </div>
+  );
+}
+function TaskCard({ task, onComplete, onFail, C }) {
+  const [open, setOpen] = useState(false);
+  const col = task.penalty ? "#ef4444" : "#a78bfa";
+  return (
+    <div style={C.taskBox(task.penalty)}>
+      <div style={{display:"flex",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}} onClick={() => setOpen(o => !o)}>
+        <div style={{flex:1}}>
+          {task.penalty && <div style={{fontSize:9,color:"#ef4444",letterSpacing:2,marginBottom:2}}>⚠ PUNISHMENT</div>}
+          <div style={{fontSize:12,color:"#e0d8cc"}}>{task.description}</div>
+          <div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>Week {task.weekNumber} · +{task.xpReward} XP</div>
+        </div>
+        <div style={{color:col,fontSize:13,padding:"0 3px",alignSelf:"center"}}>{open ? "▲" : "▼"}</div>
+      </div>
+      {open && <div style={{marginTop:9,paddingTop:9,borderTop:"1px solid #1a1a2e"}}>
+        <div style={{fontSize:11,color:"#6a6a8a",marginBottom:10}}>{task.detail}</div>
+        <div style={{display:"flex",gap:7}}>
+          <button style={{flex:1,background:"#0f2a0f",border:"1px solid #4ade80",color:"#4ade80",padding:9,borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace"}} onClick={e => { e.stopPropagation(); onComplete(task.id); }}>✓ COMPLETE</button>
+          <button style={{flex:1,background:"#2a0f0f",border:"1px solid #ef4444",color:"#ef4444",padding:9,borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace"}} onClick={e => { e.stopPropagation(); onFail(task.id); }}>✗ FAILED</button>
+        </div>
+      </div>}
+    </div>
+  );
+}
+function Goals({ goals, tasks, rc, C }) {
+  return (
+    <div>
+      <div style={C.sysMsg}>▶ Track your ascent. Each goal shapes your destiny.</div>
+      {goals.length === 0 && <div style={{textAlign:"center",padding:"36px 0",color:"#3a3a5a",fontSize:12}}>No goals registered yet.</div>}
+      {goals.map(g => {
+        const pct = Math.min(100, Math.round((g.weekNumber / g.durationWeeks) * 100));
+        const cur = tasks.find(t => t.goalId === g.id && !t.completed && !t.failed);
+        return (
+          <div key={g.id} style={{background:"rgba(167,139,250,0.05)",border:"1px solid "+(g.completed?"#1a3a1a":"#252540"),borderRadius:4,padding:13,marginBottom:11}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div><div style={{fontSize:13,fontWeight:"bold",color:g.completed?"#4ade80":"#e0d8cc"}}>{g.name}</div><div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>Target: {g.target} {g.unit} · {g.durationWeeks}wk</div></div>
+              <div style={{background:g.completed?"#0f2a0f":"#0f0f2a",color:g.completed?"#4ade80":rc,fontSize:9,padding:"3px 7px",borderRadius:3,border:"1px solid "+(g.completed?"#4ade80":rc)}}>{g.completed ? "COMPLETE" : "W"+g.weekNumber+"/"+g.durationWeeks}</div>
+            </div>
+            <div style={{marginTop:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#3a3a5a",marginBottom:2}}><span>{g.currentLevel} {g.unit}</span><span>{g.target} {g.unit}</span></div>
+              <div style={{height:3,background:"#1a1a2e",borderRadius:2}}><div style={{height:"100%",width:pct+"%",background:g.completed?"#4ade80":rc,borderRadius:2}} /></div>
+            </div>
+            {cur && <div style={{marginTop:7,fontSize:10,color:"#7a6aaa"}}>Next: {cur.description}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+function Log({ log, C }) {
+  return (
+    <div>
+      <div style={C.sysMsg}>▶ Activity log. Every action remembered.</div>
+      {log.length === 0 && <div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
+      {log.map(e => <div key={e.id} style={{borderLeft:"2px solid "+(e.text.includes("FAILED")?"#ef4444":"#a78bfa"),paddingLeft:11,marginBottom:11}}><div style={{fontSize:11,color:"#e0d8cc"}}>{e.text}</div><div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{e.time}</div></div>)}
+    </div>
+  );
+}
+function Notifs({ notifications, C, notifInterval, setNotifInterval, notifPermission, setNotifPermission }) {
+  const opts = [15, 30, 60, 120, 240];
+  async function requestPermission() {
+    const p = await Notification.requestPermission();
+    setNotifPermission(p);
+  }
+  return (
+    <div>
+      <div style={C.sysMsg}>▶ System messages. The dungeon speaks.</div>
+      <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:4,padding:"11px 13px",marginBottom:14}}>
+        <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:8}}>⏱ REMINDER INTERVAL</div>
+        {notifPermission !== "granted" && (
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:10,color:"#f59e0b",marginBottom:7}}>
+              {notifPermission === "denied" ? "⚠ Notifications blocked. Enable in browser/phone settings." : "⚠ Allow notifications to receive reminders even when app is in background."}
+            </div>
+            {notifPermission !== "denied" && (
+              <button onClick={requestPermission} style={{padding:"6px 14px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ALLOW NOTIFICATIONS</button>
+            )}
+          </div>
+        )}
+        {notifPermission === "granted" && <div style={{fontSize:9,color:"#4ade80",marginBottom:8}}>✓ Notifications active</div>}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {opts.map(m => (
+            <button key={m} onClick={() => setNotifInterval(m)} style={{padding:"5px 10px",borderRadius:3,border:"1px solid "+(notifInterval===m?"#a78bfa":"#2a2a4a"),background:notifInterval===m?"rgba(167,139,250,0.2)":"none",color:notifInterval===m?"#a78bfa":"#3a3a5a",fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>
+              {m < 60 ? m+"m" : (m/60)+"h"}
+            </button>
+          ))}
+        </div>
+        <div style={{fontSize:9,color:"#3a3a5a",marginTop:7}}>Reminders fire every {notifInterval < 60 ? notifInterval+" min" : (notifInterval/60)+" hr"}.</div>
+      </div>
+      {notifications.length === 0 && <div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No notifications yet.</div>}
+      {notifications.map(n => <div key={n.id} style={{background:n.type==="penalty"?"rgba(239,68,68,0.07)":n.type==="reward"?"rgba(74,222,128,0.07)":"rgba(167,139,250,0.07)",border:"1px solid "+(n.type==="penalty"?"#3a1a1a":n.type==="reward"?"#1a3a1a":"#2a1a3a"),borderRadius:4,padding:"9px 11px",marginBottom:7}}><div style={{fontSize:11,color:"#e0d8cc"}}>{n.msg}</div><div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{n.time}</div></div>)}
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
