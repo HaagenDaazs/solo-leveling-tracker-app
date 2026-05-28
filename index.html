@@ -4,294 +4,459 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Solo Leveling Tracker</title>
-
-  <!-- PWA -->
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#07070f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="SL Tracker" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #07070f; }
-    body { padding-top: env(safe-area-inset-top); }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #0a0a18; }
-    ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
-    input, button { -webkit-tap-highlight-color: transparent; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:#07070f}
+    body{padding-top:env(safe-area-inset-top)}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:#0a0a18}
+    ::-webkit-scrollbar-thumb{background:#2a2a4a;border-radius:2px}
+    input,button,select,textarea{-webkit-tap-highlight-color:transparent}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes timerPulse{0%,100%{opacity:1}50%{opacity:0.6}}
+    @keyframes glow{0%,100%{box-shadow:0 0 8px currentColor}50%{box-shadow:0 0 18px currentColor}}
+    .quest-card{animation:fadeIn 0.28s ease forwards}
+    .quest-card:active{transform:scale(0.98)}
+    .timer-urgent{animation:timerPulse 1s infinite}
   </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── STAT CATEGORIES ──────────────────────────────────────────────────────────
+const STATS = {
+  strength:     { label:"Strength",     icon:"⚔",  color:"#ef4444", desc:"Physical power & muscle" },
+  endurance:    { label:"Endurance",    icon:"🏃",  color:"#f97316", desc:"Cardio & stamina" },
+  intelligence: { label:"Intelligence", icon:"📚",  color:"#60a5fa", desc:"Study, reading & learning" },
+  discipline:   { label:"Discipline",   icon:"🧹",  color:"#a78bfa", desc:"Habits, chores & consistency" },
+  mental:       { label:"Mental",       icon:"🧘",  color:"#34d399", desc:"Meditation & mindfulness" },
+  charisma:     { label:"Charisma",     icon:"💬",  color:"#f59e0b", desc:"Social & communication" },
+  creativity:   { label:"Creativity",   icon:"🎨",  color:"#ec4899", desc:"Art, music & cooking" },
+  recovery:     { label:"Recovery",     icon:"🌙",  color:"#818cf8", desc:"Sleep & rest" },
+};
+
+// ─── TIER DEFINITIONS ─────────────────────────────────────────────────────────
+const TIERS = {
+  common:    { label:"COMMON",    xpMult:1.0,  statCount:1, color:"#888",    bg:"rgba(100,100,130,0.12)", border:"#2a2a4a",  glow:"none",                               unlock:"Always available" },
+  uncommon:  { label:"UNCOMMON",  xpMult:1.15, statCount:2, color:"#4ade80", bg:"rgba(74,222,128,0.08)",  border:"#1a3a1a",  glow:"0 0 6px rgba(74,222,128,0.15)",      unlock:"Always available" },
+  rare:      { label:"RARE",      xpMult:1.3,  statCount:2, color:"#60a5fa", bg:"rgba(96,165,250,0.1)",   border:"#1e3a5a",  glow:"0 0 8px rgba(96,165,250,0.2)",       unlock:"Always available" },
+  epic:      { label:"EPIC",      xpMult:1.5,  statCount:3, color:"#a78bfa", bg:"rgba(167,139,250,0.12)", border:"#3a2a5a",  glow:"0 0 12px rgba(167,139,250,0.3)",     unlock:"Always available" },
+  legendary: { label:"LEGENDARY", xpMult:1.8,  statCount:4, color:"#f59e0b", bg:"rgba(245,158,11,0.1)",   border:"#4a3a00",  glow:"0 0 16px rgba(245,158,11,0.35)",     unlock:"3+ stats required" },
+  mythic:    { label:"MYTHIC",    xpMult:2.2,  statCount:5, color:"#ec4899", bg:"rgba(236,72,153,0.1)",   border:"#5a1a3a",  glow:"0 0 20px rgba(236,72,153,0.4)",      unlock:"All 5 stats required" },
+};
+
+// ─── QUEST CARD TEMPLATES ─────────────────────────────────────────────────────
+const CARD_TEMPLATES = [
+  // COMMON (1 stat)
+  { id:"runner",    title:"Shadow Sprint",      icon:"🏃",  tier:"common",    stats:["endurance"],                                      accent:"#f97316", desc:"Pure cardiovascular pursuit. Distance, speed, or sustained effort." },
+  { id:"scholar",   title:"Scholar's Vigil",    icon:"📖",  tier:"common",    stats:["intelligence"],                                   accent:"#60a5fa", desc:"Deep study, reading chapters, or mastering a new skill." },
+  { id:"keeper",    title:"Domain Keeper",      icon:"🏠",  tier:"common",    stats:["discipline"],                                     accent:"#a78bfa", desc:"Maintain your space and habits. Clean, organize, build routines." },
+  { id:"herald",    title:"Silver Tongue",      icon:"💬",  tier:"common",    stats:["charisma"],                                       accent:"#f59e0b", desc:"Engage the world. Conversations, presentations, or socializing." },
+  { id:"sentinel",  title:"Night Sentinel",     icon:"🌙",  tier:"common",    stats:["recovery"],                                       accent:"#818cf8", desc:"Prioritize rest. Sleep on time, recover fully." },
+  { id:"artisan",   title:"Artisan's Touch",    icon:"🎨",  tier:"common",    stats:["creativity"],                                     accent:"#ec4899", desc:"Create something. Cook, draw, write, or build." },
+  { id:"iron",      title:"Iron Will",          icon:"⚔",   tier:"common",    stats:["strength"],                                       accent:"#ef4444", desc:"Raw physical power. Lift, push, and grind." },
+  { id:"still",     title:"Still Mind",         icon:"🧘",  tier:"common",    stats:["mental"],                                         accent:"#34d399", desc:"Mental clarity through mindfulness and reflection." },
+  // UNCOMMON (2 stats)
+  { id:"warrior",   title:"Warrior's Path",     icon:"🛡",  tier:"uncommon",  stats:["strength","endurance"],                           accent:"#ef4444", desc:"Raw power meets stamina. A brutal physical trial." },
+  { id:"monk",      title:"Iron Monk",          icon:"🥋",  tier:"uncommon",  stats:["strength","mental"],                              accent:"#f97316", desc:"Train the body, forge the mind. Discipline through pain." },
+  { id:"sage",      title:"Sage Protocol",      icon:"🧠",  tier:"rare",      stats:["intelligence","mental"],                          accent:"#818cf8", desc:"Intellectual growth with mindful reflection." },
+  { id:"creator2",  title:"Artisan's Forge",    icon:"🎨",  tier:"uncommon",  stats:["creativity","intelligence"],                      accent:"#ec4899", desc:"Creative output powered by deep focus." },
+  { id:"stoic",     title:"Stoic's Trial",      icon:"🪨",  tier:"uncommon",  stats:["discipline","mental"],                            accent:"#6366f1", desc:"Resist comfort, build resilience. Hard habits." },
+  { id:"scout",     title:"Scout's Edge",       icon:"🗺",  tier:"uncommon",  stats:["endurance","charisma"],                           accent:"#fbbf24", desc:"Move through the world. Explore and connect." },
+  // RARE (2 stats, higher XP)
+  { id:"paladin",   title:"Paladin's Oath",     icon:"✨",  tier:"rare",      stats:["discipline","charisma"],                          accent:"#f59e0b", desc:"Lead by example. Hold your principles and inspire others." },
+  { id:"ranger",    title:"Ranger Protocol",    icon:"🌲",  tier:"rare",      stats:["endurance","mental"],                             accent:"#34d399", desc:"Nature's endurance. Long runs, outdoor discipline." },
+  // EPIC (3 stats)
+  { id:"overlord",  title:"Overlord's Decree",  icon:"👑",  tier:"epic",      stats:["strength","intelligence","discipline"],           accent:"#fbbf24", desc:"Power, knowledge, and willpower. The classic trio of mastery." },
+  { id:"phantom",   title:"Phantom Protocol",   icon:"🌀",  tier:"epic",      stats:["endurance","mental","charisma"],                  accent:"#c084fc", desc:"Body, mind, and social presence. The complete hunter." },
+  { id:"alchemist", title:"Alchemist's Path",   icon:"⚗",   tier:"epic",      stats:["intelligence","creativity","discipline"],         accent:"#60a5fa", desc:"Transform knowledge into creation through consistent work." },
+  { id:"tempest",   title:"Tempest Rising",     icon:"⚡",  tier:"epic",      stats:["strength","endurance","mental"],                  accent:"#f97316", desc:"Physical fury guided by an unbreakable mind." },
+  // LEGENDARY (4 stats)
+  { id:"sovereign", title:"Sovereign's Trial",  icon:"🔱",  tier:"legendary", stats:["strength","intelligence","discipline","charisma"], accent:"#f59e0b", desc:"The trial of rulers. Command yourself before commanding others." },
+  { id:"ascendant", title:"Ascendant Protocol", icon:"🌟",  tier:"legendary", stats:["endurance","mental","creativity","intelligence"],  accent:"#fbbf24", desc:"Push beyond your limits in every dimension of self-growth." },
+  { id:"warden",    title:"Warden's Vigil",     icon:"🗡",  tier:"legendary", stats:["strength","endurance","discipline","recovery"],   accent:"#ef4444", desc:"Protect the vessel. Train hard, recover harder, stay consistent." },
+  // MYTHIC (5 stats)
+  { id:"godslayer", title:"God-Slayer's Rite",  icon:"💀",  tier:"mythic",    stats:["strength","endurance","intelligence","discipline","mental"], accent:"#ec4899", desc:"The ultimate trial. Every stat challenged. Only the worthy survive." },
+  { id:"cosmos",    title:"Cosmic Awakening",   icon:"🌌",  tier:"mythic",    stats:["intelligence","creativity","mental","charisma","recovery"],  accent:"#818cf8", desc:"Transcend the ordinary. Mind, soul, expression, connection, and rest." },
+];
+
 const RANKS = ["E","D","C","B","A","S","SS","SSS","National"];
 const RANK_THRESHOLDS = [0,500,1200,2500,4500,7500,11000,16000,22000];
 const RANK_COLORS = {
-  E:"#888", D:"#4ade80", C:"#60a5fa", B:"#a78bfa",
-  A:"#f59e0b", S:"#ef4444", SS:"#f97316", SSS:"#ec4899", National:"#fbbf24"
+  E:"#888",D:"#4ade80",C:"#60a5fa",B:"#a78bfa",
+  A:"#f59e0b",S:"#ef4444",SS:"#f97316",SSS:"#ec4899",National:"#fbbf24"
 };
+const STAT_XP_PER_RANK = 300;
 
-const REMINDER_MSGS = [
-  (name, done, total) => `${name}, you have ${total - done} quest(s) remaining today. The dungeon waits for no one.`,
-  (name, done, total) => done === 0
-    ? `${name}. Zero quests completed. A hunter who doesn't hunt is just prey.`
-    : `Progress: ${done}/${total} quests done. Keep pushing, ${name}.`,
-  (name, done, total) => done >= total && total > 0
-    ? `All quests complete. ${name} is worthy of their rank.`
-    : `${name} — ${total - done} task(s) unfinished. Arise.`,
-  (name, done, total) => `Daily Report — ${name}: ${done} complete, ${total - done} pending. Your rank depends on this.`,
-];
-
-const BLANK_GOAL = { name:"", target:"", unit:"reps", currentLevel:"0", durationWeeks:"8" };
 const INIT_STATE = {
-  hunter: { name:"Hunter", xp:0, totalXP:0, streak:0, daysMissed:0 },
-  goals:[], tasks:[], notifications:[], log:[]
+  hunter:{ name:"Hunter", xp:0, totalXP:0, streak:0, daysMissed:0 },
+  statXP:{ strength:0, endurance:0, intelligence:0, discipline:0, mental:0, charisma:0, creativity:0, recovery:0 },
+  quests:[],
+  dailyTasks:[],   // today's active sub-tasks, one per stat per quest
+  notifications:[],
+  log:[],
+  lastResetDate:"",  // YYYY-MM-DD string in local time
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function getRank(xp) {
-  let r = "E";
-  for (let i = RANK_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (xp >= RANK_THRESHOLDS[i]) { r = RANKS[i]; break; }
+// ─── DAILY INCREMENT FORMULA ──────────────────────────────────────────────────
+// Uses exponential-ish curve: values start ~30% of target and ramp up
+// dayIndex = 0-based day within the total duration
+// totalDays = durationWeeks * 7
+// If previousDayFailed, apply 1.4x penalty on top of normal next value
+function getDailyValue(currentLevel, target, dayIndex, totalDays, previousDayFailed = false) {
+  // Logistic-style growth: slow start, accelerate mid, taper near end
+  const range = target - currentLevel;
+  if (range <= 0) return target;
+  const t = dayIndex / Math.max(totalDays - 1, 1); // 0..1
+  // Eased progression: starts at ~20% of range, ends at 100%
+  const eased = Math.pow(t, 0.65); // sub-linear ramp
+  const base = currentLevel + range * (0.2 + 0.8 * eased);
+  const value = Math.max(currentLevel, Math.round(base));
+  if (previousDayFailed) {
+    // penalty: 30% more than what today would have been, capped at target
+    return Math.min(target, Math.round(value * 1.3));
   }
-  return r;
-}
-function getXPInfo(xp) {
-  const rank = getRank(xp), idx = RANKS.indexOf(rank);
-  if (idx >= RANKS.length - 1) return { pct: 100, nextRank: "MAX" };
-  const cur = RANK_THRESHOLDS[idx], nxt = RANK_THRESHOLDS[idx + 1];
-  return { pct: Math.round(((xp - cur) / (nxt - cur)) * 100), nextRank: RANKS[idx + 1] };
-}
-function makeTask(goal, week, penalty = false) {
-  const weeks = goal.durationWeeks || 8;
-  const step = (goal.target - goal.currentLevel) / weeks;
-  const base = Math.round(Math.max(goal.currentLevel, goal.currentLevel + step * week));
-  const value = penalty ? Math.round(base * 1.4) : base;
-  return {
-    id: Date.now() + Math.random(),
-    goalId: goal.id,
-    description: value + " " + goal.unit + " – " + goal.name,
-    detail: "Complete " + value + " " + goal.unit + " with proper form",
-    value, unit: goal.unit,
-    xpReward: Math.round(50 + value * 2 + week * 10),
-    penalty, completed: false, failed: false, weekNumber: week,
-  };
-}
-function playBeep(freq, dur, type) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type = type || "square"; o.frequency.value = freq || 440;
-    g.gain.setValueAtTime(0.2, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.15));
-    o.start(); o.stop(ctx.currentTime + (dur || 0.15));
-  } catch (_) {}
-}
-function playSuccess() { [523,659,784,1047].forEach((f,i) => setTimeout(() => playBeep(f, 0.2), i * 100)); }
-function playFail() { [300,200].forEach((f,i) => setTimeout(() => playBeep(f, 0.3, "sawtooth"), i * 150)); }
-function playClick() { playBeep(880, 0.2); }
-
-// ─── Service Worker Registration ─────────────────────────────────────────────
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
+  return Math.min(target, value);
 }
 
-// Send a real system notification — direct Notification API (iOS PWA compatible)
-function sendSystemNotif(title, body) {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-  try {
-    new Notification(title, { body, icon: "/icon-192.png", tag: "sl-reminder", renotify: true });
-  } catch (e) {
-    navigator.serviceWorker.ready.then(reg => {
-      if (reg.active) reg.active.postMessage({ type: "SHOW_NOTIFICATION", title, body });
-    }).catch(() => {});
-  }
+// ─── DATE HELPERS ─────────────────────────────────────────────────────────────
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function getMidnightMs() {
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 0, 0);
+  return midnight.getTime() - now.getTime();
 }
 
-// ─── Main App ────────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function getRank(xp){ let r="E"; for(let i=RANK_THRESHOLDS.length-1;i>=0;i--){ if(xp>=RANK_THRESHOLDS[i]){r=RANKS[i];break;} } return r; }
+function getXPInfo(xp){ const rank=getRank(xp),idx=RANKS.indexOf(rank); if(idx>=RANKS.length-1) return{pct:100,nextRank:"MAX"}; const cur=RANK_THRESHOLDS[idx],nxt=RANK_THRESHOLDS[idx+1]; return{pct:Math.round(((xp-cur)/(nxt-cur))*100),nextRank:RANKS[idx+1]}; }
+function getStatRank(xp){ return RANKS[Math.min(Math.floor((xp||0)/STAT_XP_PER_RANK),RANKS.length-1)]; }
+function getStatPct(xp){ return Math.round(((xp||0)%STAT_XP_PER_RANK)/STAT_XP_PER_RANK*100); }
+function hexToRgb(hex){ try{ return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`; }catch{return"100,100,200";} }
+function pickCards(n=3){
+  const shuffled=[...CARD_TEMPLATES].sort(()=>Math.random()-0.5);
+  // ensure variety in tiers shown
+  return shuffled.slice(0,n);
+}
+
+// ─── AUDIO ────────────────────────────────────────────────────────────────────
+function playBeep(freq,dur,type){ try{ const ctx=new(window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination);o.type=type||"square";o.frequency.value=freq||440;g.gain.setValueAtTime(0.2,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(dur||0.15));o.start();o.stop(ctx.currentTime+(dur||0.15)); }catch(_){} }
+function playSuccess(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>playBeep(f,0.2),i*100));}
+function playFail(){[300,200].forEach((f,i)=>setTimeout(()=>playBeep(f,0.3,"sawtooth"),i*150));}
+function playClick(){playBeep(880,0.06);}
+function playEpic(){[300,400,500,600,800,1000].forEach((f,i)=>setTimeout(()=>playBeep(f,0.22,"triangle"),i*70));}
+
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(()=>{})}); }
+
+function sendSystemNotif(title,body){
+  if(typeof Notification==="undefined"||Notification.permission!=="granted") return;
+  try{ new Notification(title,{body,icon:"/icon-192.png",tag:"sl-reminder",renotify:true}); }
+  catch(e){ navigator.serviceWorker.ready.then(r=>{if(r.active)r.active.postMessage({type:"SHOW_NOTIFICATION",title,body})}).catch(()=>{}); }
+}
+
+// ─── DAILY TASK GENERATOR ─────────────────────────────────────────────────────
+// Creates one task per stat for a quest on a given dayIndex
+function generateDailySubTasks(quest, dayIndex, penaltyStats = []) {
+  const totalDays = quest.durationWeeks * 7;
+  return quest.subGoals.map(sg => ({
+    id: `${quest.id}_${sg.stat}_${dayIndex}_${Date.now()}_${Math.random()}`,
+    questId: quest.id,
+    questTitle: quest.cardTitle,
+    stat: sg.stat,
+    dayIndex,
+    title: sg.title,
+    detail: sg.detail || "",
+    value: getDailyValue(sg.currentLevel, sg.target, dayIndex, totalDays, penaltyStats.includes(sg.stat)),
+    unit: sg.unit,
+    accent: quest.accent,
+    xpReward: 0, // calculated at complete time
+    xpMult: quest.xpMult,
+    completed: false,
+    failed: false,
+    isPenalty: penaltyStats.includes(sg.stat),
+  }));
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const [state, setState] = useState(() => {
-    try { const s = localStorage.getItem("sl_v3"); return s ? JSON.parse(s) : INIT_STATE; } catch { return INIT_STATE; }
+    try { const s=localStorage.getItem("sl_v5"); return s?JSON.parse(s):INIT_STATE; } catch { return INIT_STATE; }
   });
   const [view, setView] = useState("dashboard");
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
-  const [goalForm, setGoalForm] = useState(BLANK_GOAL);
+  const [questCards, setQuestCards] = useState([]);
+  const [selectedCard, setSelectedCard] = useState(null);
+  // subGoalForms: array of { stat, title, detail, target, unit, currentLevel }
+  const [subGoalForms, setSubGoalForms] = useState([]);
+  const [durationWeeks, setDurationWeeks] = useState("4");
   const [newName, setNewName] = useState("");
   const [notifInterval, setNotifInterval] = useState(60);
-  const [notifPermission, setNotifPermission] = useState(
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
-  );
+  const [notifPermission, setNotifPermission] = useState(typeof Notification!=="undefined"?Notification.permission:"unsupported");
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(getMidnightMs());
   const notifRef = useRef(null);
 
-  // Persist state
-  useEffect(() => { try { localStorage.setItem("sl_v3", JSON.stringify(state)); } catch (_) {} }, [state]);
+  // Persist
+  useEffect(()=>{ try{localStorage.setItem("sl_v5",JSON.stringify(state))}catch(_){} },[state]);
 
-  // Show first-launch notification prompt (only once, only if not yet decided)
-  useEffect(() => {
-    const asked = localStorage.getItem("sl_notif_asked");
-    if (!asked && typeof Notification !== "undefined" && Notification.permission === "default") {
-      // Small delay so the app renders first, then popup appears
-      const t = setTimeout(() => setShowNotifPrompt(true), 1200);
-      return () => clearTimeout(t);
-    }
-  }, []);
+  // Countdown timer — updates every second
+  useEffect(()=>{
+    const iv = setInterval(()=>setTimeLeft(getMidnightMs()), 1000);
+    return ()=>clearInterval(iv);
+  },[]);
 
-  async function handleNotifAllow() {
-    localStorage.setItem("sl_notif_asked", "1");
-    setShowNotifPrompt(false);
-    // This tap-triggered call is what makes iOS show the native dialog
-    const p = await Notification.requestPermission();
-    setNotifPermission(p);
-  }
-  function handleNotifDeny() {
-    localStorage.setItem("sl_notif_asked", "1");
-    setShowNotifPrompt(false);
-  }
+  // Daily reset check — runs on load + every minute
+  useEffect(()=>{
+    checkDailyReset();
+    const iv = setInterval(checkDailyReset, 60000);
+    return ()=>clearInterval(iv);
+  },[]);
 
-  // Scheduled reminder system
-  useEffect(() => {
-    if (notifRef.current) clearInterval(notifRef.current);
-    const ms = notifInterval * 60 * 1000;
-    notifRef.current = setInterval(() => {
-      setState(prev => {
-        const done = prev.tasks.filter(t => t.completed).length;
-        const active = prev.tasks.filter(t => !t.completed && !t.failed).length;
-        const total = done + active;
-        const msgFn = REMINDER_MSGS[Math.floor(Math.random() * REMINDER_MSGS.length)];
-        const body = msgFn(prev.hunter.name, done, total);
-        // Real system notification
-        sendSystemNotif("Solo Leveling Tracker", body);
-        // Also log to in-app notifs
-        const notif = { id: Date.now(), msg: "[REMINDER] " + body, type: "system", time: new Date().toLocaleTimeString() };
-        return { ...prev, notifications: [notif, ...prev.notifications].slice(0, 20) };
-      });
-      setToast({ msg: "📋 Progress reminder sent", type: "info" });
-      setTimeout(() => setToast(null), 3000);
-      playBeep(660, 0.1);
-    }, ms);
-    return () => clearInterval(notifRef.current);
-  }, [notifInterval]);
-
-  const rank = getRank(state.hunter.xp);
-  const rc = RANK_COLORS[rank];
-  const xi = getXPInfo(state.hunter.xp);
-
-  function showToast(msg, type) {
-    setToast({ msg, type: type || "info" });
-    setTimeout(() => setToast(null), 2800);
-  }
-  function pushNotif(msg, type) {
-    setState(prev => ({
-      ...prev,
-      notifications: [{ id: Date.now(), msg, type: type || "system", time: new Date().toLocaleTimeString() }, ...prev.notifications].slice(0, 20)
-    }));
-  }
-  function handleGoalField(field, value) {
-    setGoalForm(prev => ({ ...prev, [field]: value }));
-  }
-  function submitGoal() {
-    const name = (goalForm.name || "").trim();
-    const target = parseFloat(goalForm.target);
-    if (!name || isNaN(target) || target <= 0) { showToast("Fill in Goal Name and Target Value", "danger"); return; }
-    const goal = {
-      id: Date.now(), name, target,
-      unit: (goalForm.unit || "reps").trim() || "reps",
-      currentLevel: parseFloat(goalForm.currentLevel) || 0,
-      durationWeeks: parseInt(goalForm.durationWeeks) || 8,
-      weekNumber: 0, active: true, completed: false,
-    };
-    const firstTask = makeTask(goal, 1);
-    setState(prev => ({
-      ...prev, goals: [...prev.goals, goal], tasks: [...prev.tasks, firstTask],
-      log: [{ id: Date.now(), text: "Registered goal: " + goal.name, time: new Date().toLocaleString() }, ...prev.log].slice(0, 50)
-    }));
-    pushNotif("New quest registered: " + goal.name + ". Your journey begins.", "quest");
-    setModal(null); playBeep(880, 0.2); showToast("Quest added: " + goal.name, "success");
-  }
-  function completeTask(taskId) {
+  function checkDailyReset() {
+    const today = todayStr();
     setState(prev => {
-      const task = prev.tasks.find(t => t.id === taskId); if (!task) return prev;
-      const xp = task.xpReward;
-      const tasks = prev.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t);
-      const goal = prev.goals.find(g => g.id === task.goalId);
-      let goals = prev.goals, newTasks = tasks;
-      if (goal) {
-        const nw = task.weekNumber + 1;
-        if (nw <= goal.durationWeeks) {
-          goals = goals.map(g => g.id === goal.id ? { ...g, weekNumber: nw } : g);
-          newTasks = [...tasks, makeTask({ ...goal, weekNumber: nw }, nw)];
-        } else {
-          goals = goals.map(g => g.id === goal.id ? { ...g, active: false, completed: true } : g);
-        }
+      if (prev.lastResetDate === today) return prev; // already reset today
+      // It's a new day — process yesterday's failures and generate today's tasks
+      return performDailyReset(prev, today);
+    });
+  }
+
+  function performDailyReset(prev, today) {
+    // Find which daily tasks were NOT completed yesterday (failed or just untouched)
+    const yesterday = prev.dailyTasks;
+    const failedByQuest = {}; // questId -> [stat]
+    yesterday.forEach(t => {
+      if (!t.completed) {
+        if (!failedByQuest[t.questId]) failedByQuest[t.questId] = [];
+        failedByQuest[t.questId].push(t.stat);
       }
-      const hunter = { ...prev.hunter, xp: prev.hunter.xp + xp, totalXP: prev.hunter.totalXP + xp, streak: prev.hunter.streak + 1 };
-      const log = [{ id: Date.now(), text: "Completed: " + task.description + " (+" + xp + " XP)", time: new Date().toLocaleString() }, ...prev.log].slice(0, 50);
-      const notifications = [{ id: Date.now(), msg: "Quest complete! +" + xp + " XP gained.", type: "reward", time: new Date().toLocaleTimeString() }, ...prev.notifications].slice(0, 20);
-      sendSystemNotif("Quest Complete! ⚔", "+" + xp + " XP — " + task.description);
-      return { ...prev, tasks: newTasks, hunter, goals, log, notifications };
     });
-    playSuccess(); showToast("Quest complete! XP gained.", "success");
-  }
-  function failTask(taskId) {
-    setState(prev => {
-      const task = prev.tasks.find(t => t.id === taskId); if (!task) return prev;
-      const tasks = prev.tasks.map(t => t.id === taskId ? { ...t, failed: true } : t);
-      const goal = prev.goals.find(g => g.id === task.goalId);
-      let newTasks = tasks;
-      if (goal) { const pt = makeTask({ ...goal }, task.weekNumber, true); newTasks = [...tasks, pt]; }
-      const hunter = { ...prev.hunter, streak: 0, daysMissed: prev.hunter.daysMissed + 1 };
-      const log = [{ id: Date.now(), text: "FAILED: " + task.description + " — PENALTY issued", time: new Date().toLocaleString() }, ...prev.log].slice(0, 50);
-      const notifications = [{ id: Date.now(), msg: "Quest failed. Punishment task issued.", type: "penalty", time: new Date().toLocaleTimeString() }, ...prev.notifications].slice(0, 20);
-      sendSystemNotif("Quest Failed ⚠", "Punishment task has been issued. Arise and atone.");
-      return { ...prev, tasks: newTasks, hunter, log, notifications };
+
+    // Advance dayIndex on each active quest and generate new tasks
+    let newQuests = prev.quests.map(q => {
+      if (!q.active) return q;
+      const hadFailures = failedByQuest[q.id]?.length > 0;
+      return {
+        ...q,
+        dayIndex: (q.dayIndex || 0) + 1,
+        // track consecutive misses per stat
+        missedStats: hadFailures ? failedByQuest[q.id] : [],
+      };
     });
-    playFail(); showToast("Quest failed — penalty assigned", "danger");
-  }
-  function doRename() {
-    const n = (newName || "").trim(); if (!n) return;
-    setState(prev => ({ ...prev, hunter: { ...prev.hunter, name: n } }));
-    setModal(null); showToast("Name updated", "success");
-  }
-  function doReset() {
-    if (window.confirm("Reset all data?")) { setState(INIT_STATE); setModal(null); }
+
+    // Tally missed tasks for hunter penalty
+    const totalMissed = Object.values(failedByQuest).reduce((a,b)=>a+b.length,0);
+
+    let newLog = [...prev.log];
+    if (yesterday.length > 0 && totalMissed > 0) {
+      newLog = [{id:Date.now(),text:`Day reset: ${totalMissed} task(s) failed — penalty values applied for today.`,time:new Date().toLocaleString()},...newLog].slice(0,80);
+    }
+
+    // Generate today's daily tasks for all active quests
+    const newDailyTasks = [];
+    newQuests.forEach(q => {
+      if (!q.active) return;
+      const totalDays = q.durationWeeks * 7;
+      if (q.dayIndex >= totalDays) {
+        // Quest complete!
+        newQuests = newQuests.map(nq => nq.id===q.id ? {...nq, active:false, completed:true} : nq);
+        return;
+      }
+      const penaltyStats = failedByQuest[q.id] || [];
+      const tasks = generateDailySubTasks(q, q.dayIndex, penaltyStats);
+      newDailyTasks.push(...tasks);
+    });
+
+    const hunter = {
+      ...prev.hunter,
+      daysMissed: prev.hunter.daysMissed + (totalMissed > 0 ? 1 : 0),
+      streak: totalMissed > 0 ? 0 : prev.hunter.streak,
+    };
+
+    return {
+      ...prev,
+      quests: newQuests,
+      dailyTasks: newDailyTasks,
+      hunter,
+      log: newLog,
+      lastResetDate: today,
+    };
   }
 
-  const activeTasks = state.tasks.filter(t => !t.completed && !t.failed);
-  const completedTasks = state.tasks.filter(t => t.completed);
+  // Notif prompt
+  useEffect(()=>{
+    const asked=localStorage.getItem("sl_notif_asked");
+    if(!asked&&typeof Notification!=="undefined"&&Notification.permission==="default"){
+      const t=setTimeout(()=>setShowNotifPrompt(true),1400);
+      return()=>clearTimeout(t);
+    }
+  },[]);
 
-  const C = {
-    app: { background:"#07070f", minHeight:"100vh", color:"#e0d8cc", fontFamily:"'Courier New',monospace", fontSize:13 },
-    header: { background:"#0a0a18", borderBottom:"1px solid #1e1e35", padding:"12px 14px" },
-    nav: { display:"flex", borderBottom:"1px solid #1e1e35", background:"#080815" },
-    navBtn: (v) => ({ flex:1, padding:"9px 2px", background:"none", border:"none", color:view===v?rc:"#3a3a5a", fontSize:9, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", borderBottom:view===v?"2px solid "+rc:"2px solid transparent" }),
-    content: { padding:"14px 14px 80px" },
-    sysMsg: { fontSize:11, color:"#6a5a8a", letterSpacing:1, marginBottom:14, padding:"7px 10px", borderLeft:"2px solid #3a2a5a", background:"rgba(167,139,250,0.04)" },
-    secHdr: (c) => ({ fontSize:9, color:c, letterSpacing:3, marginBottom:8, marginTop:2, opacity:0.8 }),
-    taskBox: (p) => ({ background:p?"rgba(239,68,68,0.05)":"rgba(167,139,250,0.05)", border:"1px solid "+(p?"#3a1a1a":"#252540"), borderRadius:4, padding:"11px", marginBottom:9 }),
-    inp: { width:"100%", background:"#0d0d1c", border:"1px solid #2a2a4a", color:"#e0d8cc", padding:"9px 10px", borderRadius:3, fontSize:13, marginBottom:10, boxSizing:"border-box", fontFamily:"'Courier New',monospace", outline:"none" },
-    lbl: { fontSize:9, color:"#7a6a9a", letterSpacing:2, display:"block", marginBottom:5, textTransform:"uppercase" },
-    overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.9)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:16 },
-    box: { background:"#0c0c1c", border:"1px solid #3a2a6a", borderRadius:6, padding:18, width:"100%", maxWidth:340, maxHeight:"90vh", overflowY:"auto" },
+  // Reminder interval
+  useEffect(()=>{
+    if(notifRef.current)clearInterval(notifRef.current);
+    notifRef.current=setInterval(()=>{
+      setState(prev=>{
+        const done=prev.dailyTasks.filter(t=>t.completed).length;
+        const total=prev.dailyTasks.length;
+        const body=`${prev.hunter.name} — ${done}/${total} daily tasks done. The dungeon waits.`;
+        sendSystemNotif("Solo Leveling Tracker",body);
+        return{...prev,notifications:[{id:Date.now(),msg:"[REMINDER] "+body,type:"system",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,20)};
+      });
+      showToastMsg("📋 Progress reminder sent","info");
+      playBeep(660,0.1);
+    },notifInterval*60*1000);
+    return()=>clearInterval(notifRef.current);
+  },[notifInterval]);
+
+  const rank=getRank(state.hunter.xp);
+  const rc=RANK_COLORS[rank];
+  const xi=getXPInfo(state.hunter.xp);
+
+  function showToastMsg(msg,type){ setToast({msg,type:type||"info"}); setTimeout(()=>setToast(null),2800); }
+  function pushNotif(msg,type){ setState(prev=>({...prev,notifications:[{id:Date.now(),msg,type:type||"system",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,20)})); }
+
+  // ── Quest picker ──
+  function openQuestPicker(){ playClick(); setQuestCards(pickCards(3)); setSelectedCard(null); setSubGoalForms([]); setDurationWeeks("4"); setModal("pick"); }
+  function selectCard(card){ playClick(); setSelectedCard(card); setSubGoalForms(card.stats.map(s=>({stat:s,title:"",detail:"",target:"",unit:"",currentLevel:"0"}))); }
+  function updateSubGoal(idx,field,val){ setSubGoalForms(prev=>prev.map((f,i)=>i===idx?{...f,[field]:val}:f)); }
+
+  function submitQuest(){
+    if(!selectedCard) return;
+    // Validate each sub-goal
+    for(const sg of subGoalForms){
+      if(!sg.title.trim()){ showToastMsg(`Enter a name for your ${STATS[sg.stat].label} task`,"danger"); return; }
+      if(!parseFloat(sg.target)||parseFloat(sg.target)<=0){ showToastMsg(`Enter a target for ${sg.title||sg.stat}`,"danger"); return; }
+    }
+    const weeks = parseInt(durationWeeks)||4;
+    const quest = {
+      id: Date.now(),
+      cardId: selectedCard.id,
+      cardTitle: selectedCard.title,
+      cardIcon: selectedCard.icon,
+      tier: selectedCard.tier,
+      accent: selectedCard.accent,
+      stats: selectedCard.stats,
+      xpMult: TIERS[selectedCard.tier].xpMult,
+      durationWeeks: weeks,
+      dayIndex: 0,
+      active: true,
+      completed: false,
+      missedStats: [],
+      subGoals: subGoalForms.map(sg=>({
+        stat: sg.stat,
+        title: sg.title.trim(),
+        detail: sg.detail.trim(),
+        target: parseFloat(sg.target),
+        unit: sg.unit.trim()||"reps",
+        currentLevel: parseFloat(sg.currentLevel)||0,
+      })),
+    };
+
+    // Generate day 0 tasks immediately
+    const todayTasks = generateDailySubTasks(quest, 0, []);
+
+    setState(prev=>{
+      // Merge today tasks (avoid duplicates for same quest if re-adding)
+      const filtered = prev.dailyTasks.filter(t=>t.questId!==quest.id);
+      return {
+        ...prev,
+        quests:[...prev.quests, quest],
+        dailyTasks:[...filtered, ...todayTasks],
+        lastResetDate: prev.lastResetDate||todayStr(),
+        log:[{id:Date.now(),text:`Quest accepted: [${quest.cardTitle}] — ${quest.subGoals.map(sg=>sg.title).join(", ")}`,time:new Date().toLocaleString()},...prev.log].slice(0,80),
+      };
+    });
+    pushNotif(`New quest: ${quest.cardTitle}. Your trials begin today.`,"quest");
+    setModal(null);
+    playEpic();
+    showToastMsg(`Quest registered! ${todayTasks.length} daily tasks added.`,"success");
+  }
+
+  function completeTask(taskId){
+    setState(prev=>{
+      const task=prev.tasks?prev.tasks.find(t=>t.id===taskId):null;
+      const dtask=prev.dailyTasks.find(t=>t.id===taskId);
+      const t=dtask;
+      if(!t) return prev;
+      const xp=Math.round((30+t.value*2)*t.xpMult);
+      const dailyTasks=prev.dailyTasks.map(dt=>dt.id===taskId?{...dt,completed:true,xpReward:xp}:dt);
+      const statXP={...prev.statXP};
+      if(statXP[t.stat]!==undefined) statXP[t.stat]+=xp;
+      const hunter={...prev.hunter,xp:prev.hunter.xp+xp,totalXP:prev.hunter.totalXP+xp};
+      // Check if ALL tasks for this quest today are done
+      const questTasks=dailyTasks.filter(dt=>dt.questId===t.questId);
+      const allDone=questTasks.every(dt=>dt.completed||dt.failed);
+      const newStreak=allDone?prev.hunter.streak+1:prev.hunter.streak;
+      const log=[{id:Date.now(),text:`Done: ${t.title} ${t.value} ${t.unit} (+${xp} XP)`,time:new Date().toLocaleString()},...prev.log].slice(0,80);
+      sendSystemNotif("Quest Complete! ⚔",`+${xp} XP — ${t.title}`);
+      return{...prev,dailyTasks,statXP,hunter:{...hunter,streak:newStreak},log};
+    });
+    playSuccess();
+    showToastMsg("Task complete! XP gained.","success");
+  }
+
+  function failTask(taskId){
+    setState(prev=>{
+      const t=prev.dailyTasks.find(dt=>dt.id===taskId);
+      if(!t) return prev;
+      const dailyTasks=prev.dailyTasks.map(dt=>dt.id===taskId?{...dt,failed:true}:dt);
+      const hunter={...prev.hunter,streak:0,daysMissed:prev.hunter.daysMissed+1};
+      const log=[{id:Date.now(),text:`FAILED: ${t.title} ${t.value} ${t.unit} — penalty +30% tomorrow`,time:new Date().toLocaleString()},...prev.log].slice(0,80);
+      const notifications=[{id:Date.now(),msg:`Task failed: ${t.title}. Tomorrow's target increases by 30%.`,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,20);
+      return{...prev,dailyTasks,hunter,log,notifications};
+    });
+    playFail();
+    showToastMsg("Task failed — tomorrow's target increases.","danger");
+  }
+
+  function doRename(){ const n=(newName||"").trim(); if(!n)return; setState(prev=>({...prev,hunter:{...prev.hunter,name:n}})); setModal(null); showToastMsg("Name updated","success"); }
+  function doReset(){ if(window.confirm("Reset all data?")){ setState(INIT_STATE); setModal(null); } }
+
+  const activeDailyTasks=state.dailyTasks.filter(t=>!t.completed&&!t.failed);
+  const completedToday=state.dailyTasks.filter(t=>t.completed);
+
+  const C={
+    app:{background:"#07070f",minHeight:"100vh",color:"#e0d8cc",fontFamily:"'Courier New',monospace",fontSize:13},
+    header:{background:"#0a0a18",borderBottom:"1px solid #1e1e35",padding:"12px 14px"},
+    nav:{display:"flex",borderBottom:"1px solid #1e1e35",background:"#080815"},
+    navBtn:(v)=>({flex:1,padding:"9px 1px",background:"none",border:"none",color:view===v?rc:"#3a3a5a",fontSize:8,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer",borderBottom:view===v?"2px solid "+rc:"2px solid transparent",transition:"color 0.2s"}),
+    content:{padding:"14px 14px 90px"},
+    sysMsg:{fontSize:11,color:"#6a5a8a",letterSpacing:1,marginBottom:14,padding:"7px 10px",borderLeft:"2px solid #3a2a5a",background:"rgba(167,139,250,0.04)"},
+    secHdr:(c)=>({fontSize:9,color:c,letterSpacing:3,marginBottom:8,marginTop:2}),
+    overlay:{position:"fixed",inset:0,background:"rgba(0,0,0,0.93)",zIndex:100,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 16px",overflowY:"auto"},
+    box:{background:"#0c0c1c",border:"1px solid #3a2a6a",borderRadius:6,padding:18,width:"100%",maxWidth:390,marginTop:16,marginBottom:16},
+    inp:{width:"100%",background:"#0d0d1c",border:"1px solid #2a2a4a",color:"#e0d8cc",padding:"9px 10px",borderRadius:3,fontSize:12,marginBottom:8,boxSizing:"border-box",fontFamily:"'Courier New',monospace",outline:"none"},
+    lbl:{fontSize:9,color:"#7a6a9a",letterSpacing:2,display:"block",marginBottom:4,textTransform:"uppercase"},
   };
+
+  // Format countdown
+  const hrs=Math.floor(timeLeft/3600000);
+  const mins=Math.floor((timeLeft%3600000)/60000);
+  const secs=Math.floor((timeLeft%60000)/1000);
+  const timerStr=`${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  const timerUrgent=hrs<1;
 
   return (
     <div style={C.app}>
-      <div style={{position:"fixed",inset:0,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px)",pointerEvents:"none",zIndex:1}} />
+      <div style={{position:"fixed",inset:0,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px)",pointerEvents:"none",zIndex:1}} />
+
+      {/* Header */}
       <div style={C.header}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
@@ -311,89 +476,162 @@ function App() {
             <div style={{height:"100%",width:xi.pct+"%",background:rc,borderRadius:2,transition:"width 0.6s",boxShadow:"0 0 5px "+rc}} />
           </div>
         </div>
-        <div style={{display:"flex",gap:14,marginTop:7,fontSize:10}}>
-          <span style={{color:"#4ade80"}}>🔥 {state.hunter.streak}</span>
-          <span style={{color:"#f59e0b"}}>⚔ {completedTasks.length}</span>
-          <span style={{color:"#ef4444"}}>✗ {state.hunter.daysMissed}</span>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:7}}>
+          <div style={{display:"flex",gap:12,fontSize:10}}>
+            <span style={{color:"#4ade80"}}>🔥 {state.hunter.streak}</span>
+            <span style={{color:"#f59e0b"}}>✓ {completedToday.length}/{state.dailyTasks.length}</span>
+            <span style={{color:"#ef4444"}}>✗ {state.hunter.daysMissed}</span>
+          </div>
+          {/* Daily reset countdown */}
+          <div className={timerUrgent?"timer-urgent":""} style={{display:"flex",alignItems:"center",gap:5,background:"rgba(0,0,0,0.4)",border:"1px solid "+(timerUrgent?"#ef4444":"#1e1e35"),borderRadius:3,padding:"3px 8px"}}>
+            <span style={{fontSize:9,color:timerUrgent?"#ef4444":"#3a3a5a"}}>RESET</span>
+            <span style={{fontSize:11,color:timerUrgent?"#ef4444":"#6a6a8a",fontVariantNumeric:"tabular-nums"}}>{timerStr}</span>
+          </div>
         </div>
       </div>
+
+      {/* Nav */}
       <div style={C.nav}>
-        {["dashboard","goals","log","notifs"].map(v =>
-          <button key={v} style={C.navBtn(v)} onClick={() => { playClick(); setView(v); }}>
-            {v === "notifs" ? "NOTIF" : v.toUpperCase()}
+        {["dashboard","stats","quests","log","notifs"].map(v=>
+          <button key={v} style={C.navBtn(v)} onClick={()=>{playClick();setView(v);}}>
+            {v==="notifs"?"NOTIF":v==="dashboard"?"HOME":v.toUpperCase()}
           </button>
         )}
       </div>
+
       <div style={C.content}>
-        {view === "dashboard" && <Dashboard activeTasks={activeTasks} completedTasks={completedTasks} goals={state.goals} onComplete={completeTask} onFail={failTask} rc={rc} C={C} />}
-        {view === "goals" && <Goals goals={state.goals} tasks={state.tasks} rc={rc} C={C} />}
-        {view === "log" && <Log log={state.log} C={C} />}
-        {view === "notifs" && <Notifs notifications={state.notifications} C={C} notifInterval={notifInterval} setNotifInterval={setNotifInterval} notifPermission={notifPermission} setNotifPermission={setNotifPermission} />}
+        {view==="dashboard"&&<Dashboard activeTasks={activeDailyTasks} completedTasks={completedToday} allTasks={state.dailyTasks} onComplete={completeTask} onFail={failTask} rc={rc} C={C}/>}
+        {view==="stats"&&<StatsView statXP={state.statXP} hunter={state.hunter} rc={rc} C={C}/>}
+        {view==="quests"&&<QuestsView quests={state.quests} dailyTasks={state.dailyTasks} rc={rc} C={C}/>}
+        {view==="log"&&<LogView log={state.log} C={C}/>}
+        {view==="notifs"&&<NotifsView notifications={state.notifications} C={C} notifInterval={notifInterval} setNotifInterval={setNotifInterval} notifPermission={notifPermission} setNotifPermission={setNotifPermission}/>}
       </div>
 
-      <button style={{position:"fixed",bottom:20,right:16,width:50,height:50,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:24,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 16px rgba(167,139,250,0.4)"}} onClick={() => { playClick(); setGoalForm(BLANK_GOAL); setModal("goal"); }}>+</button>
-      <button style={{position:"fixed",bottom:24,left:14,background:"none",border:"1px solid #252540",color:"#3a3a5a",padding:"7px 10px",borderRadius:3,fontSize:9,cursor:"pointer",zIndex:50,letterSpacing:1}} onClick={() => { playClick(); setNewName(state.hunter.name); setModal("settings"); }}>⚙ NAME</button>
+      <button style={{position:"fixed",bottom:20,right:16,width:54,height:54,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:26,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.5)"}} onClick={openQuestPicker}>+</button>
+      <button style={{position:"fixed",bottom:24,left:14,background:"none",border:"1px solid #252540",color:"#3a3a5a",padding:"7px 10px",borderRadius:3,fontSize:9,cursor:"pointer",zIndex:50,letterSpacing:1}} onClick={()=>{playClick();setNewName(state.hunter.name);setModal("settings");}}>⚙ NAME</button>
 
-      {toast && <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#0f2a0f":toast.type==="danger"?"#2a0f0f":"#0f0f2a",border:"1px solid "+(toast.type==="success"?"#4ade80":toast.type==="danger"?"#ef4444":"#a78bfa"),padding:"8px 18px",borderRadius:4,fontSize:12,color:"#e0d8cc",zIndex:200,whiteSpace:"nowrap",pointerEvents:"none"}}>{toast.msg}</div>}
+      {toast&&<div style={{position:"fixed",bottom:86,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#0f2a0f":toast.type==="danger"?"#2a0f0f":"#0f0f2a",border:"1px solid "+(toast.type==="success"?"#4ade80":toast.type==="danger"?"#ef4444":"#a78bfa"),padding:"8px 18px",borderRadius:4,fontSize:12,color:"#e0d8cc",zIndex:200,whiteSpace:"nowrap",pointerEvents:"none"}}>{toast.msg}</div>}
 
-      {/* First-launch notification permission popup */}
-      {showNotifPrompt && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 40px 0"}}>
-          <div style={{background:"#0e0e20",border:"1px solid #3a2a6a",borderRadius:16,padding:"28px 24px",width:"100%",maxWidth:380,margin:"0 16px",boxShadow:"0 0 60px rgba(167,139,250,0.25)"}}>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <div style={{fontSize:40,marginBottom:8}}>⚔</div>
-              <div style={{fontSize:16,fontWeight:"bold",color:"#a78bfa",letterSpacing:2,fontFamily:"'Courier New',monospace"}}>"SOLO LEVELING TRACKER"</div>
-              <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:3,marginTop:4,fontFamily:"'Courier New',monospace"}}>WOULD LIKE TO SEND YOU NOTIFICATIONS</div>
-            </div>
-            <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:8,padding:"12px 14px",marginBottom:20}}>
-              <div style={{fontSize:11,color:"#b0a8c8",lineHeight:1.7,fontFamily:"'Courier New',monospace"}}>
-                Notifications will be used to send you <span style={{color:"#a78bfa"}}>daily progress reminders</span> and alerts when quests are completed or failed.<br/><br/>
-                <span style={{color:"#4ade80",fontSize:10}}>✓ Quest completion alerts</span><br/>
-                <span style={{color:"#4ade80",fontSize:10}}>✓ Daily progress check-ins</span><br/>
-                <span style={{color:"#ef4444",fontSize:10}}>⚠ Punishment task warnings</span>
-              </div>
+      {/* NOTIF PROMPT */}
+      {showNotifPrompt&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 36px"}}>
+          <div style={{background:"#0e0e20",border:"1px solid #3a2a6a",borderRadius:14,padding:"26px 22px",width:"100%",maxWidth:380,margin:"0 14px",boxShadow:"0 0 50px rgba(167,139,250,0.25)"}}>
+            <div style={{textAlign:"center",marginBottom:14}}>
+              <div style={{fontSize:36,marginBottom:6}}>⚔</div>
+              <div style={{fontSize:15,fontWeight:"bold",color:"#a78bfa",letterSpacing:2}}>"SOLO LEVELING TRACKER"</div>
+              <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:3,marginTop:3}}>WOULD LIKE TO SEND NOTIFICATIONS</div>
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{playClick();handleNotifDeny();}} style={{flex:1,padding:"13px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>DON'T ALLOW</button>
-              <button onClick={()=>{playClick();handleNotifAllow();}} style={{flex:2,padding:"13px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1,fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.4)"}}>ALLOW</button>
+              <button onClick={()=>{playClick();localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);}} style={{flex:1,padding:"12px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>DON'T ALLOW</button>
+              <button onClick={async()=>{playClick();localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);const p=await Notification.requestPermission();setNotifPermission(p);}} style={{flex:2,padding:"12px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace",fontWeight:"bold"}}>ALLOW</button>
             </div>
           </div>
         </div>
       )}
 
-      {modal === "goal" && (
+      {/* CARD PICKER */}
+      {modal==="pick"&&(
         <div style={C.overlay}>
           <div style={C.box}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>REGISTER QUEST</div>
-              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => { playClick(); setModal(null); }}>✕</button>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>CHOOSE YOUR TRIAL</div>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={()=>{playClick();setModal(null);}}>✕</button>
             </div>
-            <label style={C.lbl}>Goal Name *</label>
-            <input style={C.inp} placeholder="e.g. Pull Ups" value={goalForm.name} onChange={e => handleGoalField("name", e.target.value)} />
-            <label style={C.lbl}>Target Value *</label>
-            <input style={C.inp} type="number" placeholder="e.g. 20" min="1" value={goalForm.target} onChange={e => handleGoalField("target", e.target.value)} />
-            <label style={C.lbl}>Unit (reps / km / min / sets)</label>
-            <input style={C.inp} placeholder="reps" value={goalForm.unit} onChange={e => handleGoalField("unit", e.target.value)} />
-            <label style={C.lbl}>Current Level (starting point)</label>
-            <input style={C.inp} type="number" placeholder="0" min="0" value={goalForm.currentLevel} onChange={e => handleGoalField("currentLevel", e.target.value)} />
-            <label style={C.lbl}>Duration (weeks)</label>
-            <input style={C.inp} type="number" placeholder="8" min="1" value={goalForm.durationWeeks} onChange={e => handleGoalField("durationWeeks", e.target.value)} />
-            <button style={{width:"100%",padding:"11px",border:"none",borderRadius:3,fontSize:12,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",fontWeight:"bold",marginTop:6}} onClick={() => { playClick(); submitGoal(); }}>✓ ACCEPT QUEST</button>
+            <div style={{fontSize:10,color:"#4a4a6a",marginBottom:14,letterSpacing:1}}>Select an archetype to configure</div>
+            {questCards.map((card,i)=><QuestCardPicker key={card.id} card={card} selected={selectedCard?.id===card.id} onSelect={()=>selectCard(card)} delay={i*80}/>)}
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button style={{flex:1,padding:9,border:"1px solid #2a2a4a",borderRadius:3,fontSize:10,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace",background:"none",color:"#4a4a6a"}} onClick={()=>{playClick();setQuestCards(pickCards(3));setSelectedCard(null);setSubGoalForms([]);}}>↺ REROLL</button>
+              <button style={{flex:2,padding:9,border:"none",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:selectedCard?"#a78bfa":"#1a1a2e",color:selectedCard?"#07070f":"#3a3a5a",fontWeight:"bold",transition:"all 0.2s"}} onClick={()=>{if(selectedCard){playClick();setModal("form");}}} disabled={!selectedCard}>CONFIGURE →</button>
+            </div>
           </div>
         </div>
       )}
-      {modal === "settings" && (
+
+      {/* QUEST FORM */}
+      {modal==="form"&&selectedCard&&(
+        <div style={C.overlay}>
+          <div style={C.box}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div>
+                <div style={{fontSize:9,letterSpacing:2,color:"#4a4a6a",marginBottom:2}}>CONFIGURE TRIAL</div>
+                <div style={{fontSize:13,color:selectedCard.accent,fontWeight:"bold"}}>{selectedCard.icon} {selectedCard.title}</div>
+              </div>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:16,cursor:"pointer"}} onClick={()=>{playClick();setModal("pick");}}>← BACK</button>
+            </div>
+
+            {/* Duration */}
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,padding:"9px 11px",background:"rgba(167,139,250,0.06)",borderRadius:4,border:"1px solid #2a2a4a"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:9,color:"#7a6a9a",letterSpacing:2,marginBottom:3}}>DURATION (WEEKS)</div>
+                <input style={{width:"100%",background:"transparent",border:"none",color:"#e0d8cc",fontSize:13,fontFamily:"'Courier New',monospace",outline:"none"}} type="number" min="1" max="52" value={durationWeeks} onChange={e=>setDurationWeeks(e.target.value)} />
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:9,color:"#3a3a5a"}}>TOTAL DAYS</div>
+                <div style={{fontSize:13,color:"#a78bfa"}}>{(parseInt(durationWeeks)||4)*7}</div>
+              </div>
+            </div>
+
+            {/* XP tier info */}
+            <div style={{fontSize:9,color:TIERS[selectedCard.tier].color,padding:"5px 9px",background:"rgba(0,0,0,0.3)",borderRadius:3,border:"1px solid #1e1e35",marginBottom:14,letterSpacing:1}}>
+              {TIERS[selectedCard.tier].label} · ×{TIERS[selectedCard.tier].xpMult} XP · {selectedCard.stats.length} stat{selectedCard.stats.length>1?"s":""}
+            </div>
+
+            {/* One sub-goal form per stat */}
+            {subGoalForms.map((sg,idx)=>(
+              <div key={sg.stat} style={{background:"rgba(0,0,0,0.25)",border:`1px solid ${STATS[sg.stat].color}33`,borderRadius:5,padding:"12px",marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                  <span style={{fontSize:16}}>{STATS[sg.stat].icon}</span>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:"bold",color:STATS[sg.stat].color,letterSpacing:1}}>{STATS[sg.stat].label.toUpperCase()}</div>
+                    <div style={{fontSize:9,color:"#4a4a6a"}}>{STATS[sg.stat].desc}</div>
+                  </div>
+                </div>
+                <label style={C.lbl}>What will you do? *</label>
+                <input style={C.inp} placeholder={sg.stat==="strength"?"e.g. Pull Ups":sg.stat==="intelligence"?"e.g. Read chapters":sg.stat==="mental"?"e.g. Meditate":"e.g. "+STATS[sg.stat].label+" activity"} value={sg.title} onChange={e=>updateSubGoal(idx,"title",e.target.value)}/>
+                <label style={C.lbl}>Notes (optional)</label>
+                <input style={C.inp} placeholder="e.g. proper form, 30s rest" value={sg.detail} onChange={e=>updateSubGoal(idx,"detail",e.target.value)}/>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <div>
+                    <label style={C.lbl}>Starting</label>
+                    <input style={C.inp} type="number" min="0" placeholder="0" value={sg.currentLevel} onChange={e=>updateSubGoal(idx,"currentLevel",e.target.value)}/>
+                  </div>
+                  <div>
+                    <label style={C.lbl}>Goal *</label>
+                    <input style={C.inp} type="number" min="1" placeholder="20" value={sg.target} onChange={e=>updateSubGoal(idx,"target",e.target.value)}/>
+                  </div>
+                  <div>
+                    <label style={C.lbl}>Unit</label>
+                    <input style={C.inp} placeholder="reps" value={sg.unit} onChange={e=>updateSubGoal(idx,"unit",e.target.value)}/>
+                  </div>
+                </div>
+                {/* Preview today's starting value */}
+                {sg.target&&parseFloat(sg.target)>0&&(
+                  <div style={{fontSize:9,color:"#4a4a7a",marginTop:-4,paddingTop:4,borderTop:"1px solid #1a1a2e"}}>
+                    Day 1 target: <span style={{color:STATS[sg.stat].color}}>{getDailyValue(parseFloat(sg.currentLevel)||0,parseFloat(sg.target),0,(parseInt(durationWeeks)||4)*7)} {sg.unit||"reps"}</span>
+                    {" · "}Final day: <span style={{color:"#a78bfa"}}>{sg.target} {sg.unit||"reps"}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <button style={{width:"100%",padding:"12px",border:"none",borderRadius:3,fontSize:12,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:selectedCard.accent,color:"#07070f",fontWeight:"bold",marginTop:4}} onClick={()=>{playClick();submitQuest();}}>⚔ BEGIN TRIAL</button>
+          </div>
+        </div>
+      )}
+
+      {/* SETTINGS */}
+      {modal==="settings"&&(
         <div style={C.overlay}>
           <div style={C.box}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>SETTINGS</div>
-              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={() => { playClick(); setModal(null); }}>✕</button>
+              <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={()=>{playClick();setModal(null);}}>✕</button>
             </div>
             <label style={C.lbl}>Hunter Name</label>
-            <input style={C.inp} value={newName} onChange={e => setNewName(e.target.value)} />
-            <button style={{width:"100%",padding:10,border:"none",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",marginBottom:10}} onClick={() => { playClick(); doRename(); }}>UPDATE NAME</button>
-            <div style={{borderTop:"1px solid #1e1e35",paddingTop:12,marginTop:4}} />
-            <button style={{width:"100%",padding:10,border:"1px solid #3a1a1a",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#1a0808",color:"#ef4444"}} onClick={() => { playClick(); doReset(); }}>RESET ALL DATA</button>
+            <input style={C.inp} value={newName} onChange={e=>setNewName(e.target.value)}/>
+            <button style={{width:"100%",padding:10,border:"none",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#a78bfa",color:"#07070f",marginBottom:10}} onClick={()=>{playClick();doRename();}}>UPDATE NAME</button>
+            <div style={{borderTop:"1px solid #1e1e35",paddingTop:12}}/>
+            <button style={{width:"100%",padding:10,border:"1px solid #3a1a1a",borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:2,fontFamily:"'Courier New',monospace",background:"#1a0808",color:"#ef4444",marginTop:10}} onClick={()=>{playClick();doReset();}}>RESET ALL DATA</button>
           </div>
         </div>
       )}
@@ -401,114 +639,264 @@ function App() {
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-function Dashboard({ activeTasks, completedTasks, goals, onComplete, onFail, rc, C }) {
-  const penalty = activeTasks.filter(t => t.penalty), normal = activeTasks.filter(t => !t.penalty);
-  return (
-    <div>
-      <div style={C.sysMsg}>▶ Arise. Your daily quests await, hunter.</div>
-      {activeTasks.length === 0 && <div style={{textAlign:"center",padding:"36px 0",color:"#3a3a5a"}}><div style={{fontSize:28,marginBottom:6}}>⚔</div><div style={{fontSize:12}}>No active quests.</div><div style={{fontSize:10,marginTop:3}}>Tap + to register a new goal.</div></div>}
-      {penalty.length > 0 && <><div style={C.secHdr("#ef4444")}>⚠ PUNISHMENT TASKS</div>{penalty.map(t => <TaskCard key={t.id} task={t} onComplete={onComplete} onFail={onFail} C={C} />)}</>}
-      {normal.length > 0 && <><div style={C.secHdr(rc)}>DAILY QUESTS</div>{normal.map(t => <TaskCard key={t.id} task={t} onComplete={onComplete} onFail={onFail} C={C} />)}</>}
-      {completedTasks.length > 0 && <><div style={C.secHdr("#3a3a5a")}>COMPLETED</div>{completedTasks.slice(0, 5).map(t => <div key={t.id} style={{background:"rgba(74,222,128,0.04)",border:"1px solid #1a2e1a",borderRadius:4,padding:"9px 11px",marginBottom:7,opacity:0.6,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,textDecoration:"line-through",color:"#3a5a3a"}}>{t.description}</span><span style={{color:"#4ade80",fontSize:10}}>+{t.xpReward} XP</span></div>)}</>}
-    </div>
-  );
-}
-function TaskCard({ task, onComplete, onFail, C }) {
-  const [open, setOpen] = useState(false);
-  const col = task.penalty ? "#ef4444" : "#a78bfa";
-  return (
-    <div style={C.taskBox(task.penalty)}>
-      <div style={{display:"flex",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}} onClick={() => { playClick(); setOpen(o => !o); }}>
-        <div style={{flex:1}}>
-          {task.penalty && <div style={{fontSize:9,color:"#ef4444",letterSpacing:2,marginBottom:2}}>⚠ PUNISHMENT</div>}
-          <div style={{fontSize:12,color:"#e0d8cc"}}>{task.description}</div>
-          <div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>Week {task.weekNumber} · +{task.xpReward} XP</div>
+// ─── QUEST CARD PICKER ITEM ───────────────────────────────────────────────────
+function QuestCardPicker({card,selected,onSelect,delay=0}){
+  const tier=TIERS[card.tier];
+  return(
+    <div className="quest-card" onClick={onSelect} style={{
+      background:selected?`rgba(${hexToRgb(card.accent)},0.14)`:tier.bg,
+      border:`1px solid ${selected?card.accent:tier.border}`,
+      borderRadius:6,padding:"11px 12px",marginBottom:9,cursor:"pointer",
+      transition:"all 0.16s",boxShadow:selected?`0 0 14px rgba(${hexToRgb(card.accent)},0.35)`:tier.glow,
+      animationDelay:`${delay}ms`,opacity:0,animationFillMode:"forwards",
+    }}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:18}}>{card.icon}</span>
+          <div>
+            <div style={{fontSize:12,fontWeight:"bold",color:selected?card.accent:"#e0d8cc"}}>{card.title}</div>
+            <div style={{fontSize:8,color:tier.color,letterSpacing:2,marginTop:1}}>{tier.label} · ×{tier.xpMult} XP</div>
+          </div>
         </div>
-        <div style={{color:col,fontSize:13,padding:"0 3px",alignSelf:"center"}}>{open ? "▲" : "▼"}</div>
       </div>
-      {open && <div style={{marginTop:9,paddingTop:9,borderTop:"1px solid #1a1a2e"}}>
-        <div style={{fontSize:11,color:"#6a6a8a",marginBottom:10}}>{task.detail}</div>
-        <div style={{display:"flex",gap:7}}>
-          <button style={{flex:1,background:"#0f2a0f",border:"1px solid #4ade80",color:"#4ade80",padding:9,borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace"}} onClick={e => { e.stopPropagation(); onComplete(task.id); }}>✓ COMPLETE</button>
-          <button style={{flex:1,background:"#2a0f0f",border:"1px solid #ef4444",color:"#ef4444",padding:9,borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace"}} onClick={e => { e.stopPropagation(); onFail(task.id); }}>✗ FAILED</button>
-        </div>
-      </div>}
+      <div style={{fontSize:10,color:"#5a5a7a",lineHeight:1.5,marginBottom:7}}>{card.desc}</div>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+        {card.stats.map(s=>(
+          <span key={s} style={{fontSize:8,padding:"2px 6px",borderRadius:2,background:"rgba(0,0,0,0.3)",border:"1px solid #1e1e35",color:STATS[s].color,letterSpacing:1}}>{STATS[s].icon} {STATS[s].label.toUpperCase()}</span>
+        ))}
+      </div>
+      {selected&&<div style={{marginTop:7,fontSize:9,color:card.accent,letterSpacing:2}}>▶ SELECTED</div>}
     </div>
   );
 }
-function Goals({ goals, tasks, rc, C }) {
-  return (
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function Dashboard({activeTasks,completedTasks,allTasks,onComplete,onFail,rc,C}){
+  // Group active tasks by quest
+  const byQuest={};
+  activeTasks.forEach(t=>{
+    if(!byQuest[t.questId]) byQuest[t.questId]={title:t.questTitle,accent:t.accent,tasks:[]};
+    byQuest[t.questId].tasks.push(t);
+  });
+  const penalty=activeTasks.filter(t=>t.isPenalty), normal=activeTasks.filter(t=>!t.isPenalty);
+
+  return(
     <div>
-      <div style={C.sysMsg}>▶ Track your ascent. Each goal shapes your destiny.</div>
-      {goals.length === 0 && <div style={{textAlign:"center",padding:"36px 0",color:"#3a3a5a",fontSize:12}}>No goals registered yet.</div>}
-      {goals.map(g => {
-        const pct = Math.min(100, Math.round((g.weekNumber / g.durationWeeks) * 100));
-        const cur = tasks.find(t => t.goalId === g.id && !t.completed && !t.failed);
-        return (
-          <div key={g.id} style={{background:"rgba(167,139,250,0.05)",border:"1px solid "+(g.completed?"#1a3a1a":"#252540"),borderRadius:4,padding:13,marginBottom:11}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div><div style={{fontSize:13,fontWeight:"bold",color:g.completed?"#4ade80":"#e0d8cc"}}>{g.name}</div><div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>Target: {g.target} {g.unit} · {g.durationWeeks}wk</div></div>
-              <div style={{background:g.completed?"#0f2a0f":"#0f0f2a",color:g.completed?"#4ade80":rc,fontSize:9,padding:"3px 7px",borderRadius:3,border:"1px solid "+(g.completed?"#4ade80":rc)}}>{g.completed ? "COMPLETE" : "W"+g.weekNumber+"/"+g.durationWeeks}</div>
+      <div style={C.sysMsg}>▶ Daily trials. Complete all tasks before midnight.</div>
+      {allTasks.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#3a3a5a"}}>
+        <div style={{fontSize:30,marginBottom:8}}>⚔</div>
+        <div style={{fontSize:12}}>No daily quests yet.</div>
+        <div style={{fontSize:10,marginTop:3}}>Tap + to choose a trial archetype.</div>
+      </div>}
+      {penalty.length>0&&(
+        <>
+          <div style={C.secHdr("#ef4444")}>⚠ PENALTY TASKS</div>
+          {Object.entries(byQuest).filter(([,g])=>g.tasks.some(t=>t.isPenalty)).map(([qid,group])=>(
+            <QuestGroup key={qid} group={group} onComplete={onComplete} onFail={onFail} penaltyOnly C={C}/>
+          ))}
+        </>
+      )}
+      {normal.length>0&&(
+        <>
+          <div style={C.secHdr(rc)}>TODAY'S TASKS</div>
+          {Object.entries(byQuest).filter(([,g])=>g.tasks.some(t=>!t.isPenalty)).map(([qid,group])=>(
+            <QuestGroup key={qid} group={group} onComplete={onComplete} onFail={onFail} C={C}/>
+          ))}
+        </>
+      )}
+      {completedTasks.length>0&&(
+        <>
+          <div style={C.secHdr("#3a3a5a")}>COMPLETED TODAY</div>
+          {completedTasks.map(t=>(
+            <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 10px",marginBottom:6,borderLeft:`2px solid ${STATS[t.stat]?.color||"#4ade80"}`,opacity:0.55}}>
+              <span style={{fontSize:11,textDecoration:"line-through",color:"#3a5a3a"}}>{STATS[t.stat]?.icon} {t.title} · {t.value} {t.unit}</span>
+              <span style={{color:"#4ade80",fontSize:10}}>+{t.xpReward||0} XP</span>
             </div>
-            <div style={{marginTop:9}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#3a3a5a",marginBottom:2}}><span>{g.currentLevel} {g.unit}</span><span>{g.target} {g.unit}</span></div>
-              <div style={{height:3,background:"#1a1a2e",borderRadius:2}}><div style={{height:"100%",width:pct+"%",background:g.completed?"#4ade80":rc,borderRadius:2}} /></div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function QuestGroup({group,onComplete,onFail,C}){
+  const [open,setOpen]=useState(true);
+  return(
+    <div style={{background:`rgba(${hexToRgb(group.accent)},0.04)`,border:`1px solid #252540`,borderRadius:5,marginBottom:12,overflow:"hidden"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 11px",cursor:"pointer",borderBottom:open?"1px solid #1e1e30":"none"}} onClick={()=>{playClick();setOpen(o=>!o);}}>
+        <div style={{fontSize:10,color:group.accent,fontWeight:"bold",letterSpacing:1}}>{group.title}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:9,color:"#3a3a5a"}}>{group.tasks.filter(t=>t.completed).length}/{group.tasks.length}</span>
+          <span style={{color:group.accent,fontSize:11}}>{open?"▲":"▼"}</span>
+        </div>
+      </div>
+      {open&&group.tasks.map(t=><DailyTaskRow key={t.id} task={t} onComplete={onComplete} onFail={onFail}/>)}
+    </div>
+  );
+}
+
+function DailyTaskRow({task,onComplete,onFail}){
+  const [open,setOpen]=useState(false);
+  const statColor=STATS[task.stat]?.color||"#a78bfa";
+  return(
+    <div style={{borderBottom:"1px solid #1a1a28",lastChild:{borderBottom:"none"}}}>
+      <div style={{display:"flex",alignItems:"center",padding:"9px 11px",cursor:"pointer",gap:8}} onClick={()=>{playClick();setOpen(o=>!o);}}>
+        <span style={{fontSize:14}}>{STATS[task.stat]?.icon}</span>
+        <div style={{flex:1}}>
+          {task.isPenalty&&<div style={{fontSize:8,color:"#ef4444",letterSpacing:2,marginBottom:1}}>⚠ PENALTY</div>}
+          <div style={{fontSize:11,color:"#e0d8cc"}}>{task.title}</div>
+          <div style={{fontSize:10,color:statColor,marginTop:1,fontWeight:"bold"}}>{task.value} {task.unit}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:8,color:"#3a3a5a",letterSpacing:1}}>{STATS[task.stat]?.label}</div>
+          <div style={{fontSize:9,color:"#4a4a7a",marginTop:1}}>Day {task.dayIndex+1}</div>
+        </div>
+        <div style={{color:statColor,fontSize:11,marginLeft:4}}>{open?"▲":"▼"}</div>
+      </div>
+      {open&&(
+        <div style={{padding:"0 11px 11px",borderTop:"1px solid #1a1a28"}}>
+          {task.detail&&<div style={{fontSize:10,color:"#5a5a7a",marginTop:8,marginBottom:8}}>{task.detail}</div>}
+          <div style={{display:"flex",gap:7,marginTop:8}}>
+            <button style={{flex:1,background:"#0f2a0f",border:"1px solid #4ade80",color:"#4ade80",padding:9,borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace"}} onClick={e=>{e.stopPropagation();onComplete(task.id);}}>✓ DONE</button>
+            <button style={{flex:1,background:"#2a0f0f",border:"1px solid #ef4444",color:"#ef4444",padding:9,borderRadius:3,fontSize:11,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace"}} onClick={e=>{e.stopPropagation();onFail(task.id);}}>✗ FAILED</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── STATS VIEW ───────────────────────────────────────────────────────────────
+function StatsView({statXP,hunter,rc,C}){
+  const overallRank=getRank(hunter.xp);
+  return(
+    <div>
+      <div style={C.sysMsg}>▶ Status window. Your true power revealed.</div>
+      <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:6,padding:"14px",marginBottom:18,textAlign:"center"}}>
+        <div style={{fontSize:9,color:"#4a4a6a",letterSpacing:3,marginBottom:4}}>OVERALL RANK</div>
+        <div style={{fontSize:44,fontWeight:"bold",color:RANK_COLORS[overallRank],letterSpacing:4,textShadow:`0 0 20px ${RANK_COLORS[overallRank]}`}}>{overallRank}</div>
+        <div style={{fontSize:11,color:"#5a5a7a",marginTop:4}}>{hunter.xp.toLocaleString()} total XP · {hunter.streak} day streak</div>
+      </div>
+      <div style={C.secHdr(rc)}>STAT RANKS</div>
+      {Object.entries(STATS).map(([key,cat])=>{
+        const xp=statXP[key]||0;
+        const sr=getStatRank(xp);
+        const pct=getStatPct(xp);
+        const sc=RANK_COLORS[sr];
+        return(
+          <div key={key} style={{background:"rgba(0,0,0,0.3)",border:"1px solid #1e1e30",borderRadius:4,padding:"10px 12px",marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:17}}>{cat.icon}</span>
+                <div>
+                  <div style={{fontSize:11,color:cat.color,letterSpacing:1}}>{cat.label}</div>
+                  <div style={{fontSize:9,color:"#3a3a5a"}}>{cat.desc}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                <div style={{fontSize:9,color:"#3a3a5a"}}>{xp} XP</div>
+                <div style={{background:`rgba(${hexToRgb(sc)},0.15)`,border:`1px solid ${sc}`,borderRadius:3,padding:"2px 7px",fontSize:10,fontWeight:"bold",color:sc,minWidth:28,textAlign:"center"}}>{sr}</div>
+              </div>
             </div>
-            {cur && <div style={{marginTop:7,fontSize:10,color:"#7a6aaa"}}>Next: {cur.description}</div>}
+            <div style={{height:2,background:"#1a1a2e",borderRadius:1}}>
+              <div style={{height:"100%",width:pct+"%",background:cat.color,borderRadius:1,transition:"width 0.5s",boxShadow:`0 0 4px ${cat.color}`}}/>
+            </div>
+            <div style={{fontSize:8,color:"#3a3a5a",marginTop:2,textAlign:"right"}}>{pct}% → {RANKS[Math.min(RANKS.indexOf(sr)+1,RANKS.length-1)]}</div>
           </div>
         );
       })}
     </div>
   );
 }
-function Log({ log, C }) {
-  return (
+
+// ─── QUESTS VIEW ──────────────────────────────────────────────────────────────
+function QuestsView({quests,dailyTasks,rc,C}){
+  return(
     <div>
-      <div style={C.sysMsg}>▶ Activity log. Every action remembered.</div>
-      {log.length === 0 && <div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
-      {log.map(e => <div key={e.id} style={{borderLeft:"2px solid "+(e.text.includes("FAILED")?"#ef4444":"#a78bfa"),paddingLeft:11,marginBottom:11}}><div style={{fontSize:11,color:"#e0d8cc"}}>{e.text}</div><div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{e.time}</div></div>)}
-    </div>
-  );
-}
-function Notifs({ notifications, C, notifInterval, setNotifInterval, notifPermission, setNotifPermission }) {
-  const opts = [15, 30, 60, 120, 240];
-  async function requestPermission() {
-    const p = await Notification.requestPermission();
-    setNotifPermission(p);
-  }
-  return (
-    <div>
-      <div style={C.sysMsg}>▶ System messages. The dungeon speaks.</div>
-      <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:4,padding:"11px 13px",marginBottom:14}}>
-        <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:8}}>⏱ REMINDER INTERVAL</div>
-        {notifPermission !== "granted" && (
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,color:"#f59e0b",marginBottom:7}}>
-              {notifPermission === "denied" ? "⚠ Notifications blocked. Enable in browser/phone settings." : "⚠ Allow notifications to receive reminders even when app is in background."}
+      <div style={C.sysMsg}>▶ Your active trials. Long-term progress tracker.</div>
+      {quests.length===0&&<div style={{textAlign:"center",padding:"36px 0",color:"#3a3a5a",fontSize:12}}>No quests yet. Tap + to begin.</div>}
+      {quests.map(q=>{
+        const tier=TIERS[q.tier||"common"];
+        const totalDays=q.durationWeeks*7;
+        const pct=Math.min(100,Math.round(((q.dayIndex||0)/totalDays)*100));
+        return(
+          <div key={q.id} style={{background:q.completed?"rgba(74,222,128,0.04)":tier.bg,border:`1px solid ${q.completed?"#1a3a1a":tier.border}`,borderRadius:5,padding:"12px 13px",marginBottom:11,boxShadow:tier.glow}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div>
+                <div style={{fontSize:8,color:tier.color,letterSpacing:2,marginBottom:2}}>{tier.label}</div>
+                <div style={{fontSize:13,color:q.completed?"#4ade80":"#e0d8cc",fontWeight:"bold"}}>{q.cardIcon} {q.cardTitle}</div>
+              </div>
+              <div style={{background:q.completed?"#0f2a0f":"transparent",color:q.completed?"#4ade80":(q.accent||rc),fontSize:9,padding:"3px 8px",borderRadius:3,border:`1px solid ${q.completed?"#4ade80":(q.accent||rc)}`,whiteSpace:"nowrap"}}>{q.completed?"COMPLETE":`Day ${(q.dayIndex||0)+1}/${totalDays}`}</div>
             </div>
-            {notifPermission !== "denied" && (
-              <button onClick={requestPermission} style={{padding:"6px 14px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ALLOW NOTIFICATIONS</button>
-            )}
+            {/* Sub-goal list */}
+            {(q.subGoals||[]).map(sg=>{
+              const todayTask=dailyTasks.find(t=>t.questId===q.id&&t.stat===sg.stat&&!t.completed&&!t.failed);
+              const sgPct=Math.min(100,Math.round(((q.dayIndex||0)/totalDays)*(sg.target-sg.currentLevel)/(sg.target-sg.currentLevel||1)*100));
+              return(
+                <div key={sg.stat} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderTop:"1px solid #1a1a2a"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:12}}>{STATS[sg.stat]?.icon}</span>
+                    <div>
+                      <div style={{fontSize:10,color:"#b0a8c0"}}>{sg.title}</div>
+                      <div style={{fontSize:9,color:"#3a3a5a"}}>{sg.currentLevel} → {sg.target} {sg.unit}</div>
+                    </div>
+                  </div>
+                  {todayTask&&<div style={{fontSize:9,color:STATS[sg.stat]?.color,whiteSpace:"nowrap"}}>Today: {todayTask.value} {sg.unit}</div>}
+                </div>
+              );
+            })}
+            <div style={{marginTop:9,height:2,background:"#1a1a2e",borderRadius:1}}>
+              <div style={{height:"100%",width:pct+"%",background:q.accent||rc,borderRadius:1,transition:"width 0.5s"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:8,color:"#3a3a5a",marginTop:2}}>
+              <span>Week {Math.ceil(((q.dayIndex||0)+1)/7)} / {q.durationWeeks}</span>
+              <span>{pct}% complete</span>
+            </div>
           </div>
-        )}
-        {notifPermission === "granted" && <div style={{fontSize:9,color:"#4ade80",marginBottom:8}}>✓ Notifications active</div>}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {opts.map(m => (
-            <button key={m} onClick={() => setNotifInterval(m)} style={{padding:"5px 10px",borderRadius:3,border:"1px solid "+(notifInterval===m?"#a78bfa":"#2a2a4a"),background:notifInterval===m?"rgba(167,139,250,0.2)":"none",color:notifInterval===m?"#a78bfa":"#3a3a5a",fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>
-              {m < 60 ? m+"m" : (m/60)+"h"}
-            </button>
-          ))}
-        </div>
-        <div style={{fontSize:9,color:"#3a3a5a",marginTop:7}}>Reminders fire every {notifInterval < 60 ? notifInterval+" min" : (notifInterval/60)+" hr"}.</div>
-      </div>
-      {notifications.length === 0 && <div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No notifications yet.</div>}
-      {notifications.map(n => <div key={n.id} style={{background:n.type==="penalty"?"rgba(239,68,68,0.07)":n.type==="reward"?"rgba(74,222,128,0.07)":"rgba(167,139,250,0.07)",border:"1px solid "+(n.type==="penalty"?"#3a1a1a":n.type==="reward"?"#1a3a1a":"#2a1a3a"),borderRadius:4,padding:"9px 11px",marginBottom:7}}><div style={{fontSize:11,color:"#e0d8cc"}}>{n.msg}</div><div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{n.time}</div></div>)}
+        );
+      })}
     </div>
   );
 }
 
-ReactDOM.render(<App />, document.getElementById("root"));
+// ─── LOG ──────────────────────────────────────────────────────────────────────
+function LogView({log,C}){
+  return(
+    <div>
+      <div style={C.sysMsg}>▶ Activity log. Every action recorded.</div>
+      {log.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
+      {log.map(e=><div key={e.id} style={{borderLeft:`2px solid ${e.text.includes("FAILED")||e.text.includes("failed")?"#ef4444":"#a78bfa"}`,paddingLeft:11,marginBottom:11}}>
+        <div style={{fontSize:11,color:"#e0d8cc"}}>{e.text}</div>
+        <div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{e.time}</div>
+      </div>)}
+    </div>
+  );
+}
+
+// ─── NOTIFS VIEW ──────────────────────────────────────────────────────────────
+function NotifsView({notifications,C,notifInterval,setNotifInterval,notifPermission,setNotifPermission}){
+  const opts=[15,30,60,120,240];
+  return(
+    <div>
+      <div style={C.sysMsg}>▶ System messages. The dungeon speaks.</div>
+      <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:4,padding:"11px 13px",marginBottom:14}}>
+        <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:8}}>⏱ REMINDER INTERVAL</div>
+        {notifPermission!=="granted"&&<div style={{marginBottom:10}}><div style={{fontSize:10,color:"#f59e0b",marginBottom:7}}>{notifPermission==="denied"?"⚠ Notifications blocked. Enable in settings.":"⚠ Allow notifications to receive reminders."}</div>{notifPermission!=="denied"&&<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPermission(p);}} style={{padding:"6px 14px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ALLOW</button>}</div>}
+        {notifPermission==="granted"&&<div style={{fontSize:9,color:"#4ade80",marginBottom:8}}>✓ Notifications active</div>}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {opts.map(m=><button key={m} onClick={()=>setNotifInterval(m)} style={{padding:"5px 10px",borderRadius:3,border:"1px solid "+(notifInterval===m?"#a78bfa":"#2a2a4a"),background:notifInterval===m?"rgba(167,139,250,0.2)":"none",color:notifInterval===m?"#a78bfa":"#3a3a5a",fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>{m<60?m+"m":(m/60)+"h"}</button>)}
+        </div>
+      </div>
+      {notifications.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No notifications yet.</div>}
+      {notifications.map(n=><div key={n.id} style={{background:n.type==="penalty"?"rgba(239,68,68,0.07)":n.type==="reward"?"rgba(74,222,128,0.07)":"rgba(167,139,250,0.07)",border:"1px solid "+(n.type==="penalty"?"#3a1a1a":n.type==="reward"?"#1a3a1a":"#2a1a3a"),borderRadius:4,padding:"9px 11px",marginBottom:7}}>
+        <div style={{fontSize:11,color:"#e0d8cc"}}>{n.msg}</div>
+        <div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{n.time}</div>
+      </div>)}
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById("root"));
 </script>
 </body>
 </html>
