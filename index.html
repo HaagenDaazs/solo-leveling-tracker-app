@@ -993,7 +993,7 @@ function App({onSignOut}){
         {view==="dashboard"&&<Dashboard activeTasks={activeTasks} completedTasks={completedTasks} allTasks={S.dailyTasks} onComplete={completeTask} onFail={failTask} rc={rc} C={C} onSpawnBoss={spawnBoss} activeBoss={S.activeBoss} nextBossSpawnTime={S.nextBossSpawnTime}/>}
         {view==="stats"&&<StatsView statXP={S.statXP} hunter={S.hunter} achievements={S.achievements||[]} rc={rc} C={C}/>}
         {view==="quests"&&<QuestsView quests={S.quests} dailyTasks={S.dailyTasks} rc={rc} C={C}/>}
-        {view==="achieve"&&<AchieveView achievements={S.achievements||[]} titles={S.titles||[]} equippedTitle={S.equippedTitle} onEquipTitle={equipTitle} log={S.log} C={C} rc={rc}/>}
+        {view==="achieve"&&<AchieveView achievements={S.achievements||[]} titles={S.titles||[]} equippedTitle={S.equippedTitle} onEquipTitle={equipTitle} C={C} rc={rc}/>}
         {view==="notifs"&&<LogView notifications={S.notifications} log={S.log} C={C} notifPerm={notifPerm} setNotifPerm={setNotifPerm}/>}
       </div>
 
@@ -1432,14 +1432,14 @@ function QuestsView({quests,dailyTasks,rc,C}){
 }
 
 // ─── ACHIEVEMENTS VIEW ────────────────────────────────────────────────────────
-function AchieveView({achievements,titles,equippedTitle,onEquipTitle,log,C,rc}){
+function AchieveView({achievements,titles,equippedTitle,onEquipTitle,C,rc}){
   const [tab,setTab]=useState("achievements");
   const unlocked=new Set(achievements);
   const allAch=[...ACHIEVEMENT_CATALOG,...BOSSES.map(b=>b.achievementDrop).filter(Boolean)];
   return(
     <div>
       <div style={{display:"flex",gap:0,marginBottom:14,border:"1px solid #2a2a4a",borderRadius:4,overflow:"hidden"}}>
-        {["achievements","titles","log"].map(t=><button key={t} onClick={()=>{playSfx("click");setTab(t);}} style={{flex:1,padding:"8px",background:tab===t?"rgba(167,139,250,0.15)":"none",border:"none",borderRight:t!=="log"?"1px solid #2a2a4a":"none",color:tab===t?"#a78bfa":"#3a3a5a",fontSize:9,letterSpacing:2,cursor:"pointer",textTransform:"uppercase",fontFamily:"'Courier New',monospace"}}>{t}</button>)}
+        {["achievements","titles"].map(t=><button key={t} onClick={()=>{playSfx("click");setTab(t);}} style={{flex:1,padding:"8px",background:tab===t?"rgba(167,139,250,0.15)":"none",border:"none",borderRight:t!=="titles"?"1px solid #2a2a4a":"none",color:tab===t?"#a78bfa":"#3a3a5a",fontSize:9,letterSpacing:2,cursor:"pointer",textTransform:"uppercase",fontFamily:"'Courier New',monospace"}}>{t}</button>)}
       </div>
 
       {tab==="achievements"&&(
@@ -1485,69 +1485,69 @@ function AchieveView({achievements,titles,equippedTitle,onEquipTitle,log,C,rc}){
         </div>
       )}
 
-      {tab==="log"&&(
-        <div>
-          <div style={C.sysMsg}>▶ Activity log. Every action recorded.</div>
-          {log.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
-          {log.map(e=><div key={e.id} style={{borderLeft:`2px solid ${(e.text.includes("FAILED")||e.text.includes("failed")||e.text.includes("missed"))?"#ef4444":e.text.includes("⚔")?"#f59e0b":"#a78bfa"}`,paddingLeft:11,marginBottom:11}}>
-            <div style={{fontSize:11,color:"#e0d8cc"}}>{e.text}</div>
-            <div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{e.time}</div>
-          </div>)}
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── NOTIFS VIEW ──────────────────────────────────────────────────────────────
+// ─── LOG VIEW ────────────────────────────────────────────────────────────────
 function LogView({notifications,log,C,notifPerm,setNotifPerm}){
-  // Merge notifications and log entries by timestamp, newest first
   const notifEntries=(notifications||[]).map(n=>({
-    id:n.id, time:n.id, // id is timestamp
-    msg:n.msg, type:n.type, timeStr:n.time, source:"notif"
+    id:n.id+"n", time:n.id, msg:n.msg, type:n.type, timeStr:n.time
   }));
   const logEntries=(log||[]).map(l=>({
-    id:l.id, time:l.id,
-    msg:l.text, type:"log", timeStr:l.time, source:"log"
+    id:l.id+"l", time:l.id, msg:l.text, type:"log", timeStr:l.time
   }));
   const merged=[...notifEntries,...logEntries].sort((a,b)=>b.time-a.time).slice(0,60);
 
-  function entryStyle(type){
-    if(type==="penalty")  return{bg:"rgba(239,68,68,0.07)",   border:"#3a1a1a", dot:"#ef4444"};
-    if(type==="boss")     return{bg:"rgba(245,158,11,0.07)",  border:"#4a3a00", dot:"#f59e0b"};
-    if(type==="reward")   return{bg:"rgba(74,222,128,0.07)",  border:"#1a3a1a", dot:"#4ade80"};
-    if(type==="quest")    return{bg:"rgba(167,139,250,0.07)", border:"#2a1a4a", dot:"#a78bfa"};
-    if(type==="log")      return{bg:"rgba(255,255,255,0.02)", border:"#1e1e35", dot:"#3a3a5a"};
-    return                      {bg:"rgba(167,139,250,0.05)", border:"#2a2a4a", dot:"#4a4a6a"};
+  function dot(type){
+    if(type==="penalty") return "#ef4444";
+    if(type==="boss")    return "#f59e0b";
+    if(type==="reward")  return "#4ade80";
+    if(type==="quest")   return "#a78bfa";
+    return "#3a3a5a";
+  }
+  function bg(type){
+    if(type==="penalty") return{bg:"rgba(239,68,68,0.07)",   border:"#3a1a1a"};
+    if(type==="boss")    return{bg:"rgba(245,158,11,0.07)",  border:"#4a3a00"};
+    if(type==="reward")  return{bg:"rgba(74,222,128,0.07)",  border:"#1a3a1a"};
+    if(type==="quest")   return{bg:"rgba(167,139,250,0.07)", border:"#2a1a4a"};
+    return               {bg:"rgba(255,255,255,0.02)",       border:"#1e1e35"};
+  }
+
+  async function handleEnable(){
+    // Must be triggered by user gesture — call directly
+    try{
+      const p=await Notification.requestPermission();
+      setNotifPerm(p);
+    }catch(e){console.warn("notif perm error",e);}
   }
 
   return(
     <div>
       <div style={C.sysMsg}>▶ Dungeon Activity Log</div>
 
-      {/* Notification status */}
       <div style={{background:"rgba(167,139,250,0.05)",border:"1px solid #2a2a4a",borderRadius:4,padding:"10px 13px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div>
           <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:2}}>PUSH NOTIFICATIONS</div>
-          <div style={{fontSize:9,color:"#4a4a6a"}}>Boss alerts · Daily reset · Reminders</div>
+          <div style={{fontSize:9,color:"#4a4a6a"}}>Boss alerts · Daily reset</div>
         </div>
         {notifPerm==="granted"
           ?<div style={{fontSize:9,color:"#4ade80",letterSpacing:1}}>✓ ACTIVE</div>
           :notifPerm==="denied"
-            ?<div style={{fontSize:9,color:"#ef4444"}}>✗ BLOCKED<br/><span style={{color:"#4a4a6a"}}>Enable in Settings</span></div>
-            :<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPerm(p);}} style={{padding:"6px 12px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ENABLE</button>
+            ?<div style={{fontSize:9,color:"#ef4444",textAlign:"right"}}>✗ BLOCKED<br/><span style={{color:"#4a4a6a",fontSize:8}}>Enable in phone Settings</span></div>
+            :<button onClick={handleEnable} style={{padding:"6px 12px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ENABLE</button>
         }
       </div>
 
-      {merged.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet. Complete tasks to build your log.</div>}
-      {merged.map(entry=>{
-        const s=entryStyle(entry.type);
+      {merged.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
+      {merged.map(e=>{
+        const s=bg(e.type);
         return(
-          <div key={entry.id+entry.source} style={{background:s.bg,border:`1px solid ${s.border}`,borderRadius:4,padding:"9px 11px",marginBottom:6,display:"flex",gap:10,alignItems:"flex-start"}}>
-            <div style={{width:6,height:6,borderRadius:"50%",background:s.dot,marginTop:4,flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:11,color:"#e0d8cc",lineHeight:1.4}}>{entry.msg}</div>
-              <div style={{fontSize:9,color:"#3a3a5a",marginTop:3}}>{entry.timeStr}</div>
+          <div key={e.id} style={{background:s.bg,border:`1px solid ${s.border}`,borderRadius:4,padding:"9px 11px",marginBottom:6,display:"flex",gap:10,alignItems:"flex-start"}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:dot(e.type),marginTop:4,flexShrink:0}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,color:"#e0d8cc",lineHeight:1.4}}>{e.msg}</div>
+              <div style={{fontSize:9,color:"#3a3a5a",marginTop:3}}>{e.timeStr}</div>
             </div>
           </div>
         );
