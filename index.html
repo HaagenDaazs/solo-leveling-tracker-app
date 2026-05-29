@@ -471,6 +471,35 @@ async function _saveToFirestore(fields){
   }catch(_){}
 }
 
+async function backupGameState(){
+  try{
+    const uid=_getUserId();
+    const raw=localStorage.getItem("sl_v7");
+    if(!raw)return;
+    await fetch(`${_FS_URL}/${uid}`,{
+      method:"PATCH",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({fields:{gameBackup:{stringValue:raw}}}),
+    });
+  }catch(_){}
+}
+
+async function restoreGameStateIfNeeded(){
+  try{
+    const existing=localStorage.getItem("sl_v7");
+    if(existing)return false;
+    const uid=_getUserId();
+    const res=await fetch(`${_FS_URL}/${uid}`);
+    if(!res.ok)return false;
+    const doc=await res.json();
+    const backup=doc.fields?.gameBackup?.stringValue;
+    if(!backup)return false;
+    localStorage.setItem("sl_v7",backup);
+    console.log("[SL] Game state restored from Firestore backup");
+    return true;
+  }catch(_){return false;}
+}
+
 async function syncBossStateToFirestore(activeBoss){
   if(activeBoss){
     await _saveToFirestore({
@@ -594,7 +623,7 @@ function App(){
   const [selCard,setSelCard]=useState(null);
   const [subForms,setSubForms]=useState([]);
   const [newName,setNewName]=useState("");
-  const [notifInt,setNotifInt]=useState(60);
+  const [notifInt,setNotifInt]=useState(()=>{try{const v=parseInt(localStorage.getItem("sl_notif_int"));return v&&[15,30,60,120,240].includes(v)?v:60;}catch{return 60;}});
   const [notifPerm,setNotifPerm]=useState(typeof Notification!=="undefined"?Notification.permission:"unsupported");
   const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [timeLeft,setTimeLeft]=useState(getMidnightMs());
@@ -604,10 +633,11 @@ function App(){
   const notifRef=useRef(null);
   const bossTimerRef=useRef(null);
 
-  useEffect(()=>{try{localStorage.setItem("sl_v7",JSON.stringify(S))}catch(_){}},[S]);
+  useEffect(()=>{try{localStorage.setItem("sl_v7",JSON.stringify(S));backupGameState();}catch(_){}},[S]);
   useEffect(()=>{const iv=setInterval(()=>setTimeLeft(getMidnightMs()),1000);return()=>clearInterval(iv);},[]);
   useEffect(()=>{checkReset();const iv=setInterval(checkReset,60000);return()=>clearInterval(iv);},[]);
   useEffect(()=>{const asked=localStorage.getItem("sl_notif_asked");if(!asked&&typeof Notification!=="undefined"&&Notification.permission==="default"){const t=setTimeout(()=>setShowNotifPrompt(true),1400);return()=>clearTimeout(t);}},[]);
+  useEffect(()=>{try{localStorage.setItem("sl_notif_int",String(notifInt));}catch(_){}},[notifInt]);
   useEffect(()=>{
     if(notifRef.current)clearInterval(notifRef.current);
     notifRef.current=setInterval(()=>{
@@ -1449,7 +1479,11 @@ function NotifsView({notifications,C,notifInt,setNotifInt,notifPerm,setNotifPerm
   );
 }
 
-ReactDOM.render(<App/>,document.getElementById("root"));
+// Restore from Firestore backup on first load (iOS PWA re-install protection)
+restoreGameStateIfNeeded().then(restored=>{
+  if(restored) console.log("[SL] Restored — reloading app state from Firestore");
+  ReactDOM.render(<App/>,document.getElementById("root"));
+});
 </script>
 </body>
 </html>
