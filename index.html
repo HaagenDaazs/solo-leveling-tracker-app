@@ -419,7 +419,7 @@ function getDailyValue(sg,dayIndex,totalDays,penaltyFactor=1.0){
 }
 
 function calcTaskXP(task,achievements=[]){
-  const base=25+task.value*1.5+(task.dayIndex||0)*2;
+  const base=50+task.value*1.5+(task.dayIndex||0)*2;
   const buffMult=getBuffMult(achievements,task.stat);
   return Math.round(base*(task.xpMult||1)*buffMult);
 }
@@ -550,8 +550,25 @@ function App(){
         if(!boss)return prev;
         const elapsed=Date.now()-prev.activeBoss.startTime;
         if(elapsed>=boss.timeLimitMs){
-          sendNotif("⚠ Boss Escaped!",`${boss.name} has fled the dungeon. You ran out of time.`);
-          return{...prev,activeBoss:{...prev.activeBoss,failed:true},notifications:[{id:Date.now(),msg:`⚠ BOSS ESCAPED: ${boss.name} fled. Time ran out.`,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
+          // XP penalties for incomplete tasks: 50% stat XP loss each, 20% overall XP loss
+          const tasksDone=prev.activeBoss.tasksDone||[];
+          const incompleteTasks=boss.tasks.filter(t=>!tasksDone.includes(t.id));
+          const statXP={...prev.statXP};
+          const lossDetails=[];
+          incompleteTasks.forEach(t=>{
+            const loss=Math.floor(t.xp*0.5);
+            if(statXP[t.stat]!==undefined){statXP[t.stat]=Math.max(0,statXP[t.stat]-loss);}
+            lossDetails.push(`-${loss} ${STATS[t.stat]?.label||t.stat}`);
+          });
+          const overallLoss=Math.floor(boss.xpReward*0.20);
+          const newHunterXP=Math.max(0,prev.hunter.xp-overallLoss);
+          const hunter={...prev.hunter,xp:newHunterXP};
+          const logMsg=`⚠ BOSS ESCAPED: ${boss.name} — Overall -${overallLoss} XP · ${lossDetails.join(", ")||"no incomplete tasks"}`;
+          sendNotif("⚠ Boss Escaped!",`${boss.name} fled. -${overallLoss} overall XP lost.`);
+          setTimeout(()=>playSfx("fail"),100);
+          return{...prev,activeBoss:{...prev.activeBoss,failed:true},statXP,hunter,
+            log:[{id:Date.now(),text:logMsg,time:new Date().toLocaleString()},...prev.log].slice(0,80),
+            notifications:[{id:Date.now(),msg:logMsg,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
         }
         return prev;
       });
@@ -652,10 +669,19 @@ function App(){
     setS(prev=>{
       const t=prev.dailyTasks.find(dt=>dt.id===id);if(!t)return prev;
       const dailyTasks=prev.dailyTasks.map(dt=>dt.id===id?{...dt,failed:true}:dt);
-      const log=[{id:Date.now(),text:`✗ FAILED: ${t.title} — tomorrow +30%`,time:new Date().toLocaleString()},...prev.log].slice(0,80);
-      return{...prev,dailyTasks,hunter:{...prev.hunter,streak:0,daysMissed:prev.hunter.daysMissed+1},log,notifications:[{id:Date.now(),msg:`Task failed: ${t.title}. Tomorrow +30%.`,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
+      const wouldHaveEarned=calcTaskXP(t,prev.achievements||[]);
+      const statLoss=Math.floor(wouldHaveEarned*0.50);
+      const overallLoss=Math.floor(wouldHaveEarned*0.75);
+      const statXP={...prev.statXP};
+      if(t.stat&&statXP[t.stat]!==undefined)statXP[t.stat]=Math.max(0,statXP[t.stat]-statLoss);
+      const newXP=Math.max(0,prev.hunter.xp-overallLoss);
+      const hunter={...prev.hunter,xp:newXP,streak:0,daysMissed:prev.hunter.daysMissed+1};
+      const logText=`✗ FAILED: ${t.title} — -${statLoss} ${STATS[t.stat]?.label||""} XP · -${overallLoss} Overall XP · tomorrow +30%`;
+      const notifMsg=`⚠ Task failed: ${t.title}. -${statLoss} ${STATS[t.stat]?.label||""} XP, -${overallLoss} Overall XP. Tomorrow +30%.`;
+      const log=[{id:Date.now(),text:logText,time:new Date().toLocaleString()},...prev.log].slice(0,80);
+      return{...prev,dailyTasks,statXP,hunter,log,notifications:[{id:Date.now(),msg:notifMsg,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
     });
-    playSfx("fail");showMsg("Task failed — tomorrow's target increases.","danger");
+    playSfx("fail");showMsg("Task failed — XP lost, tomorrow harder.","danger");
   }
 
   // Boss functions
