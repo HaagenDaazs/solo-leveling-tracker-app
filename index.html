@@ -13,6 +13,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;background:#07070f}
@@ -437,6 +439,81 @@ function playSfx(name){
 }
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
 
+// ── FCM Integration ───────────────────────────────────────────────────────────
+const _FB_CONFIG = {
+  apiKey:            "AIzaSyAptUL8WwEN2bu6KzzqpTpLDiAfO99L3g4",
+  authDomain:        "solo-leveling-tracker-26bf0.firebaseapp.com",
+  projectId:         "solo-leveling-tracker-26bf0",
+  storageBucket:     "solo-leveling-tracker-26bf0.firebasestorage.app",
+  messagingSenderId: "313976364226",
+  appId:             "1:313976364226:web:c0abf1540cf8a8a641ef5b",
+};
+const _VAPID_KEY = "BEk-eXX3ldT0Nr7obd6jbWgxF-sVRPjlMdbV66Krn6bU3KRhuzalRyVMqqZftFxbYvqTVUpUtVuhs-7RO4aAsqw";
+const _FS_URL = `https://firestore.googleapis.com/v1/projects/solo-leveling-tracker-26bf0/databases/(default)/documents/users`;
+
+firebase.initializeApp(_FB_CONFIG);
+const _fcm = firebase.messaging();
+
+function _getUserId(){
+  let id=localStorage.getItem("sl_user_id");
+  if(!id){id="user_"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("sl_user_id",id);}
+  return id;
+}
+
+async function _saveToFirestore(fields){
+  try{
+    const uid=_getUserId();
+    await fetch(`${_FS_URL}/${uid}`,{
+      method:"PATCH",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,typeof v==="boolean"?{booleanValue:v}:{stringValue:String(v??"")}]))}),
+    });
+  }catch(_){}
+}
+
+async function syncBossStateToFirestore(activeBoss){
+  if(activeBoss){
+    await _saveToFirestore({
+      bossId:        activeBoss.bossId||"",
+      bossStartTime: String(activeBoss.startTime||0),
+      bossFailed:    activeBoss.failed||false,
+      bossWon:       activeBoss.won||false,
+    });
+  } else {
+    await _saveToFirestore({bossId:"",bossStartTime:"0",bossFailed:false,bossWon:false});
+  }
+}
+
+async function _registerFCM(){
+  try{
+    if(!("serviceWorker"in navigator))return;
+    const swReg=await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const perm=await Notification.requestPermission();
+    if(perm!=="granted")return;
+    const token=await _fcm.getToken({vapidKey:_VAPID_KEY,serviceWorkerRegistration:swReg});
+    if(!token)return;
+    // Save token + current boss state
+    let extra={};
+    try{
+      const s=JSON.parse(localStorage.getItem("sl_v7")||"{}");
+      if(s.activeBoss){extra={bossId:s.activeBoss.bossId||"",bossStartTime:String(s.activeBoss.startTime||0),bossFailed:s.activeBoss.failed||false,bossWon:s.activeBoss.won||false};}
+    }catch(_){}
+    await _saveToFirestore({fcmToken:token,...extra});
+    console.log("[SL] FCM registered");
+  }catch(e){console.warn("[SL] FCM setup failed:",e);}
+}
+
+// Handle foreground messages (app is open)
+_fcm.onMessage((payload)=>{
+  const{title,body}=payload.notification||{};
+  if(title&&body)sendNotif(title,body);
+});
+
+// Kick off after short delay to not block render
+if("serviceWorker"in navigator){
+  window.addEventListener("load",()=>setTimeout(_registerFCM,2500));
+}
+
 function genTasks(quest,dayIndex,penaltyStats=[]){
   return quest.subGoals.map(sg=>{
     const totalDays=sg.durationWeeks*7;
@@ -566,6 +643,7 @@ function App(){
           const logMsg=`⚠ BOSS ESCAPED: ${boss.name} — Overall -${overallLoss} XP · ${lossDetails.join(", ")||"no incomplete tasks"}`;
           sendNotif("⚠ Boss Escaped!",`${boss.name} fled. -${overallLoss} overall XP lost.`);
           setTimeout(()=>playSfx("fail"),100);
+          syncBossStateToFirestore({bossId:prev.activeBoss.bossId,startTime:prev.activeBoss.startTime,failed:true,won:false});
           return{...prev,activeBoss:{...prev.activeBoss,failed:true},statXP,hunter,
             log:[{id:Date.now(),text:logMsg,time:new Date().toLocaleString()},...prev.log].slice(0,80),
             notifications:[{id:Date.now(),msg:logMsg,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
@@ -589,7 +667,7 @@ function App(){
         const boss=possible[Math.floor(Math.random()*possible.length)];
         const next=scheduleNextBossMs();
         sendNotif("⚔ Boss Appeared!",`${boss.name} — ${boss.subtitle}. Defeat it before time runs out!`);
-        setTimeout(()=>{playSfx("boss");showMsg(`⚔ ${TIERS[tier].label} BOSS: ${boss.name} has appeared!`,"success");setShowBoss(true);},100);
+        setTimeout(()=>{playSfx("boss");showMsg(`⚔ ${TIERS[tier].label} BOSS: ${boss.name} has appeared!`,"success");setShowBoss(true);syncBossStateToFirestore({bossId:boss.id,startTime:Date.now(),failed:false,won:false});},100);
         return{
           ...prev,
           activeBoss:{bossId:boss.id,startTime:Date.now(),tasksDone:[],failed:false,won:false},
@@ -696,6 +774,7 @@ function App(){
     }));
     playSfx("boss");
     sendNotif("⚔ Boss Appeared!",`${boss.name} has appeared. Defeat it before time runs out!`);
+    syncBossStateToFirestore({bossId:boss.id,startTime:Date.now(),failed:false,won:false});
     setShowBoss(true);
   }
 
@@ -731,6 +810,7 @@ function App(){
         if(achRoll<0.05&&boss.achievementDrop&&!newAch.includes(boss.achievementDrop.id)){newAch.push(boss.achievementDrop.id);popupTarget=boss.achievementDrop.id;setTimeout(()=>triggerAchievePopup([boss.achievementDrop.id]),900);}
         sendNotif("⚔ Boss Defeated!",`${boss.name} has been slain! +${bonusXP} XP`);
         setTimeout(()=>{playSfx("epic");showMsg(`Boss defeated! +${bonusXP} XP`,"success");},300);
+        syncBossStateToFirestore({bossId:prev.activeBoss.bossId,startTime:prev.activeBoss.startTime,failed:false,won:true});
       }
       if(newRank!==oldRank){setTimeout(()=>{playSfx("levelup");showMsg(`⬆ RANK UP! Now Rank ${newRank}`,"success");},400);}
       const log=[{id:Date.now(),text:`⚔ Boss task: ${bossTask?.desc||taskId} (+${xp} XP)${allDone?" — BOSS DEFEATED!":""}`,time:new Date().toLocaleString()},...prev.log].slice(0,80);
