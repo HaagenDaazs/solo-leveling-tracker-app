@@ -574,7 +574,15 @@ _fcm.onMessage((payload)=>{
 });
 
 if("serviceWorker"in navigator){
-  window.addEventListener("load",()=>setTimeout(_registerFCM,2500));
+  // Called after _currentUid is set so token saves to correct document
+  window.addEventListener("load",()=>setTimeout(()=>{
+    if(_currentUid) _registerFCM();
+    else {
+      // Poll until uid is available (boot sequence sets it)
+      const poll=setInterval(()=>{ if(_currentUid){ clearInterval(poll); _registerFCM(); } },500);
+      setTimeout(()=>clearInterval(poll),15000); // give up after 15s
+    }
+  },2500));
 }
 
 
