@@ -666,29 +666,19 @@ function App({onSignOut}){
   const [selCard,setSelCard]=useState(null);
   const [subForms,setSubForms]=useState([]);
   const [newName,setNewName]=useState("");
-  const [notifInt,setNotifInt]=useState(()=>{try{const v=parseInt(localStorage.getItem("sl_notif_int"));return v&&[15,30,60,120,240].includes(v)?v:60;}catch{return 60;}});
   const [notifPerm,setNotifPerm]=useState(typeof Notification!=="undefined"?Notification.permission:"unsupported");
   const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [timeLeft,setTimeLeft]=useState(getMidnightMs());
   const [confirmReset,setConfirmReset]=useState(false);
   const [achievePopup,setAchievePopup]=useState(null); // {name,desc,buff,icon}
   const [showBoss,setShowBoss]=useState(false);
-  const notifRef=useRef(null);
   const bossTimerRef=useRef(null);
 
   useEffect(()=>{try{localStorage.setItem("sl_v7",JSON.stringify(S));backupGameState();}catch(_){}},[S]);
-  useEffect(()=>{try{localStorage.setItem("sl_notif_int",String(notifInt));}catch(_){}},[notifInt]);
   useEffect(()=>{const iv=setInterval(()=>setTimeLeft(getMidnightMs()),1000);return()=>clearInterval(iv);},[]);
   useEffect(()=>{checkReset();const iv=setInterval(checkReset,60000);return()=>clearInterval(iv);},[]);
   useEffect(()=>{const asked=localStorage.getItem("sl_notif_asked");if(!asked&&typeof Notification!=="undefined"&&Notification.permission==="default"){const t=setTimeout(()=>setShowNotifPrompt(true),1400);return()=>clearTimeout(t);}},[]);
-  useEffect(()=>{
-    if(notifRef.current)clearInterval(notifRef.current);
-    notifRef.current=setInterval(()=>{
-      setS(prev=>{const done=prev.dailyTasks.filter(t=>t.completed).length,tot=prev.dailyTasks.length;const body=`${prev.hunter.name} — ${done}/${tot} tasks done. The dungeon awaits.`;sendNotif("Daily Quest Update",body);return{...prev,notifications:[{id:Date.now(),msg:"[REMINDER] "+body,type:"system",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};});
-      showMsg("📋 Reminder sent","info");playBeep(660,0.08);
-    },notifInt*60*1000);
-    return()=>clearInterval(notifRef.current);
-  },[notifInt]);
+
 
   // Boss timer checker
   useEffect(()=>{
@@ -977,7 +967,7 @@ function App({onSignOut}){
       <div style={C.nav}>
         {["dashboard","stats","quests","achieve","notifs"].map(v=>
           <button key={v} style={C.navBtn(v)} onClick={()=>{playSfx("click");setView(v);}}>
-            {v==="achieve"?"ACHIEVE":v==="dashboard"?"HOME":v.toUpperCase()}
+            {v==="achieve"?"ACHIEVE":v==="dashboard"?"HOME":v==="notifs"?"LOG":v.toUpperCase()}
           </button>
         )}
       </div>
@@ -1004,7 +994,7 @@ function App({onSignOut}){
         {view==="stats"&&<StatsView statXP={S.statXP} hunter={S.hunter} achievements={S.achievements||[]} rc={rc} C={C}/>}
         {view==="quests"&&<QuestsView quests={S.quests} dailyTasks={S.dailyTasks} rc={rc} C={C}/>}
         {view==="achieve"&&<AchieveView achievements={S.achievements||[]} titles={S.titles||[]} equippedTitle={S.equippedTitle} onEquipTitle={equipTitle} log={S.log} C={C} rc={rc}/>}
-        {view==="notifs"&&<NotifsView notifications={S.notifications} C={C} notifInt={notifInt} setNotifInt={setNotifInt} notifPerm={notifPerm} setNotifPerm={setNotifPerm}/>}
+        {view==="notifs"&&<LogView notifications={S.notifications} log={S.log} C={C} notifPerm={notifPerm} setNotifPerm={setNotifPerm}/>}
       </div>
 
       <button style={{position:"fixed",bottom:20,right:16,width:54,height:54,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:26,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.5)"}} onClick={openQuestPicker}>+</button>
@@ -1510,22 +1500,58 @@ function AchieveView({achievements,titles,equippedTitle,onEquipTitle,log,C,rc}){
 }
 
 // ─── NOTIFS VIEW ──────────────────────────────────────────────────────────────
-function NotifsView({notifications,C,notifInt,setNotifInt,notifPerm,setNotifPerm}){
-  const opts=[15,30,60,120,240];
+function LogView({notifications,log,C,notifPerm,setNotifPerm}){
+  // Merge notifications and log entries by timestamp, newest first
+  const notifEntries=(notifications||[]).map(n=>({
+    id:n.id, time:n.id, // id is timestamp
+    msg:n.msg, type:n.type, timeStr:n.time, source:"notif"
+  }));
+  const logEntries=(log||[]).map(l=>({
+    id:l.id, time:l.id,
+    msg:l.text, type:"log", timeStr:l.time, source:"log"
+  }));
+  const merged=[...notifEntries,...logEntries].sort((a,b)=>b.time-a.time).slice(0,60);
+
+  function entryStyle(type){
+    if(type==="penalty")  return{bg:"rgba(239,68,68,0.07)",   border:"#3a1a1a", dot:"#ef4444"};
+    if(type==="boss")     return{bg:"rgba(245,158,11,0.07)",  border:"#4a3a00", dot:"#f59e0b"};
+    if(type==="reward")   return{bg:"rgba(74,222,128,0.07)",  border:"#1a3a1a", dot:"#4ade80"};
+    if(type==="quest")    return{bg:"rgba(167,139,250,0.07)", border:"#2a1a4a", dot:"#a78bfa"};
+    if(type==="log")      return{bg:"rgba(255,255,255,0.02)", border:"#1e1e35", dot:"#3a3a5a"};
+    return                      {bg:"rgba(167,139,250,0.05)", border:"#2a2a4a", dot:"#4a4a6a"};
+  }
+
   return(
     <div>
-      <div style={C.sysMsg}>▶ System messages. The dungeon speaks.</div>
-      <div style={{background:"rgba(167,139,250,0.07)",border:"1px solid #2a2a4a",borderRadius:4,padding:"11px 13px",marginBottom:14}}>
-        <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:8}}>⏱ REMINDER INTERVAL</div>
-        {notifPerm!=="granted"&&<div style={{marginBottom:10}}><div style={{fontSize:10,color:"#f59e0b",marginBottom:7}}>{notifPerm==="denied"?"⚠ Blocked. Enable in phone settings.":"⚠ Allow notifications for daily reminders."}</div>{notifPerm!=="denied"&&<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPerm(p);}} style={{padding:"6px 14px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>ALLOW</button>}</div>}
-        {notifPerm==="granted"&&<div style={{fontSize:9,color:"#4ade80",marginBottom:8}}>✓ Notifications active</div>}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{opts.map(m=><button key={m} onClick={()=>setNotifInt(m)} style={{padding:"5px 10px",borderRadius:3,border:"1px solid "+(notifInt===m?"#a78bfa":"#2a2a4a"),background:notifInt===m?"rgba(167,139,250,0.2)":"none",color:notifInt===m?"#a78bfa":"#3a3a5a",fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>{m<60?m+"m":(m/60)+"h"}</button>)}</div>
+      <div style={C.sysMsg}>▶ Dungeon Activity Log</div>
+
+      {/* Notification status */}
+      <div style={{background:"rgba(167,139,250,0.05)",border:"1px solid #2a2a4a",borderRadius:4,padding:"10px 13px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:2}}>PUSH NOTIFICATIONS</div>
+          <div style={{fontSize:9,color:"#4a4a6a"}}>Boss alerts · Daily reset · Reminders</div>
+        </div>
+        {notifPerm==="granted"
+          ?<div style={{fontSize:9,color:"#4ade80",letterSpacing:1}}>✓ ACTIVE</div>
+          :notifPerm==="denied"
+            ?<div style={{fontSize:9,color:"#ef4444"}}>✗ BLOCKED<br/><span style={{color:"#4a4a6a"}}>Enable in Settings</span></div>
+            :<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPerm(p);}} style={{padding:"6px 12px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ENABLE</button>
+        }
       </div>
-      {notifications.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No notifications yet.</div>}
-      {notifications.map(n=><div key={n.id} style={{background:n.type==="penalty"?"rgba(239,68,68,0.07)":n.type==="boss"?"rgba(245,158,11,0.07)":n.type==="reward"?"rgba(74,222,128,0.07)":"rgba(167,139,250,0.07)",border:"1px solid "+(n.type==="penalty"?"#3a1a1a":n.type==="boss"?"#4a3a00":n.type==="reward"?"#1a3a1a":"#2a1a3a"),borderRadius:4,padding:"9px 11px",marginBottom:7}}>
-        <div style={{fontSize:11,color:"#e0d8cc"}}>{n.msg}</div>
-        <div style={{fontSize:9,color:"#3a3a5a",marginTop:2}}>{n.time}</div>
-      </div>)}
+
+      {merged.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet. Complete tasks to build your log.</div>}
+      {merged.map(entry=>{
+        const s=entryStyle(entry.type);
+        return(
+          <div key={entry.id+entry.source} style={{background:s.bg,border:`1px solid ${s.border}`,borderRadius:4,padding:"9px 11px",marginBottom:6,display:"flex",gap:10,alignItems:"flex-start"}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:s.dot,marginTop:4,flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11,color:"#e0d8cc",lineHeight:1.4}}>{entry.msg}</div>
+              <div style={{fontSize:9,color:"#3a3a5a",marginTop:3}}>{entry.timeStr}</div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
