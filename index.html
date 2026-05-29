@@ -666,7 +666,6 @@ function App({onSignOut}){
   const [selCard,setSelCard]=useState(null);
   const [subForms,setSubForms]=useState([]);
   const [newName,setNewName]=useState("");
-  const [notifPerm,setNotifPerm]=useState(typeof Notification!=="undefined"?Notification.permission:"unsupported");
   const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [timeLeft,setTimeLeft]=useState(getMidnightMs());
   const [confirmReset,setConfirmReset]=useState(false);
@@ -994,7 +993,7 @@ function App({onSignOut}){
         {view==="stats"&&<StatsView statXP={S.statXP} hunter={S.hunter} achievements={S.achievements||[]} rc={rc} C={C}/>}
         {view==="quests"&&<QuestsView quests={S.quests} dailyTasks={S.dailyTasks} rc={rc} C={C}/>}
         {view==="achieve"&&<AchieveView achievements={S.achievements||[]} titles={S.titles||[]} equippedTitle={S.equippedTitle} onEquipTitle={equipTitle} C={C} rc={rc}/>}
-        {view==="notifs"&&<LogView notifications={S.notifications} log={S.log} C={C} notifPerm={notifPerm} setNotifPerm={setNotifPerm}/>}
+        {view==="notifs"&&<LogView notifications={S.notifications} log={S.log} C={C}/>}
       </div>
 
       <button style={{position:"fixed",bottom:20,right:16,width:54,height:54,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:26,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.5)"}} onClick={openQuestPicker}>+</button>
@@ -1214,7 +1213,7 @@ function App({onSignOut}){
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);}} style={{flex:1,padding:"12px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>DON'T ALLOW</button>
-              <button onClick={async()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);const p=await Notification.requestPermission();setNotifPerm(p);}} style={{flex:2,padding:"12px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace",fontWeight:"bold"}}>ALLOW</button>
+              <button onClick={async()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);await Notification.requestPermission();}} style={{flex:2,padding:"12px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace",fontWeight:"bold"}}>ALLOW</button>
             </div>
           </div>
         </div>
@@ -1490,7 +1489,7 @@ function AchieveView({achievements,titles,equippedTitle,onEquipTitle,C,rc}){
 }
 
 // ─── LOG VIEW ────────────────────────────────────────────────────────────────
-function LogView({notifications,log,C,notifPerm,setNotifPerm}){
+function LogView({notifications,log,C}){
   const notifEntries=(notifications||[]).map(n=>({
     id:n.id+"n", time:n.id, msg:n.msg, type:n.type, timeStr:n.time
   }));
@@ -1514,30 +1513,9 @@ function LogView({notifications,log,C,notifPerm,setNotifPerm}){
     return               {bg:"rgba(255,255,255,0.02)",       border:"#1e1e35"};
   }
 
-  async function handleEnable(){
-    // Must be triggered by user gesture — call directly
-    try{
-      const p=await Notification.requestPermission();
-      setNotifPerm(p);
-    }catch(e){console.warn("notif perm error",e);}
-  }
-
   return(
     <div>
       <div style={C.sysMsg}>▶ Dungeon Activity Log</div>
-
-      <div style={{background:"rgba(167,139,250,0.05)",border:"1px solid #2a2a4a",borderRadius:4,padding:"10px 13px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div>
-          <div style={{fontSize:9,color:"#a78bfa",letterSpacing:2,marginBottom:2}}>PUSH NOTIFICATIONS</div>
-          <div style={{fontSize:9,color:"#4a4a6a"}}>Boss alerts · Daily reset</div>
-        </div>
-        {notifPerm==="granted"
-          ?<div style={{fontSize:9,color:"#4ade80",letterSpacing:1}}>✓ ACTIVE</div>
-          :notifPerm==="denied"
-            ?<div style={{fontSize:9,color:"#ef4444",textAlign:"right"}}>✗ BLOCKED<br/><span style={{color:"#4a4a6a",fontSize:8}}>Enable in phone Settings</span></div>
-            :<button onClick={handleEnable} style={{padding:"6px 12px",background:"rgba(167,139,250,0.2)",border:"1px solid #a78bfa",color:"#a78bfa",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>ENABLE</button>
-        }
-      </div>
 
       {merged.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
       {merged.map(e=>{
