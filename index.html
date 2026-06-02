@@ -552,18 +552,33 @@ async function syncBossStateToFirestore(activeBoss){
 async function _registerFCM(){
   try{
     if(!("serviceWorker"in navigator))return;
-    const swReg=await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    const perm=await Notification.requestPermission();
-    if(perm!=="granted")return;
+    if(Notification.permission!=="granted")return;
+
+    // Register the Firebase messaging SW
+    const swReg=await navigator.serviceWorker.register("/firebase-messaging-sw.js",{scope:"/"});
+
+    // Wait until the SW is fully active — critical for iOS and Android
+    await new Promise((resolve)=>{
+      if(swReg.active){resolve();return;}
+      const sw=swReg.installing||swReg.waiting;
+      if(!sw){resolve();return;}
+      sw.addEventListener("statechange",function onState(){
+        if(sw.state==="activated"){sw.removeEventListener("statechange",onState);resolve();}
+      });
+      // Fallback timeout so we never hang
+      setTimeout(resolve,5000);
+    });
+
     const token=await _fcm.getToken({vapidKey:_VAPID_KEY,serviceWorkerRegistration:swReg});
-    if(!token)return;
+    if(!token){console.warn("[SL] FCM: no token returned");return;}
+
     let extra={};
     try{
       const s=JSON.parse(localStorage.getItem("sl_v7")||"{}");
       if(s.activeBoss){extra={bossId:s.activeBoss.bossId||"",bossStartTime:String(s.activeBoss.startTime||0),bossFailed:s.activeBoss.failed||false,bossWon:s.activeBoss.won||false};}
     }catch(_){}
     await _saveToFirestore({fcmToken:token,...extra});
-    console.log("[SL] FCM registered");
+    console.log("[SL] FCM registered, token:",token.slice(0,20)+"...");
   }catch(e){console.warn("[SL] FCM setup failed:",e);}
 }
 
@@ -574,15 +589,21 @@ _fcm.onMessage((payload)=>{
 });
 
 if("serviceWorker"in navigator){
-  // Called after _currentUid is set so token saves to correct document
-  window.addEventListener("load",()=>setTimeout(()=>{
-    if(_currentUid) _registerFCM();
-    else {
-      // Poll until uid is available (boot sequence sets it)
-      const poll=setInterval(()=>{ if(_currentUid){ clearInterval(poll); _registerFCM(); } },500);
-      setTimeout(()=>clearInterval(poll),15000); // give up after 15s
-    }
-  },2500));
+  // Wait for page load + uid, then register
+  window.addEventListener("load",()=>{
+    const tryRegister=()=>{
+      if(!_currentUid)return;
+      // Only register if permission already granted (prompt is handled by the in-app modal)
+      if(Notification.permission==="granted") _registerFCM();
+    };
+    setTimeout(()=>{
+      tryRegister();
+      if(!_currentUid){
+        const poll=setInterval(()=>{if(_currentUid){clearInterval(poll);tryRegister();}},500);
+        setTimeout(()=>clearInterval(poll),15000);
+      }
+    },1500);
+  });
 }
 
 
@@ -1213,7 +1234,7 @@ function App({onSignOut}){
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);}} style={{flex:1,padding:"12px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>DON'T ALLOW</button>
-              <button onClick={async()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);await Notification.requestPermission();}} style={{flex:2,padding:"12px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace",fontWeight:"bold"}}>ALLOW</button>
+              <button onClick={async()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);const p=await Notification.requestPermission();if(p==="granted")_registerFCM();}} style={{flex:2,padding:"12px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace",fontWeight:"bold"}}>ALLOW</button>
             </div>
           </div>
         </div>
