@@ -1,6 +1,6 @@
 // /api/notify.js
 // Vercel serverless function - called by cron-job.org every 5 minutes
-// Uses FCM V1 API (Legacy is disabled on your project)
+// Uses FCM V1 API
 
 const BOSSES = {
   goblin_king:       { name:"Goblin King",        tier:"common",    timeLimitMs: 2*60*60*1000,  xpReward:80   },
@@ -11,8 +11,20 @@ const BOSSES = {
   void_deity:        { name:"Void Deity",         tier:"mythic",    timeLimitMs: 24*60*60*1000, xpReward:2500 },
 };
 
-// ── JWT / OAuth2 for FCM V1 ───────────────────────────────────────────────────
+// ── Reminder messages ──────────────────────────────────────────────────────────
+const REMINDER_MESSAGES = [
+  { title: "⚔ The dungeon waits.", body: "Your daily trials are incomplete. The system is watching." },
+  { title: "📋 Quests pending.", body: "You have unfinished trials. Return and complete them." },
+  { title: "⚡ Hunter, wake up.", body: "Your quests won't complete themselves. Get back in the dungeon." },
+  { title: "🔥 Don't break the streak.", body: "Your daily tasks are waiting. Don't let progress slip." },
+  { title: "⚔ The weak rest. The strong train.", body: "Your quests are still active. Go claim your XP." },
+  { title: "📋 Unfinished business.", body: "The dungeon has tasks with your name on them. Don't make it wait." },
+];
 
+// Reminder interval in hours — change this to adjust frequency
+const REMINDER_INTERVAL_HOURS = 2;
+
+// ── JWT / OAuth2 for FCM V1 ────────────────────────────────────────────────────
 async function getAccessToken() {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey  = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n");
@@ -55,8 +67,7 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// ── Firestore helpers ─────────────────────────────────────────────────────────
-
+// ── Firestore helpers ──────────────────────────────────────────────────────────
 const PROJECT_ID = "solo-leveling-tracker-26bf0";
 const FS_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
@@ -105,8 +116,7 @@ async function fsList(token, collection) {
   }));
 }
 
-// ── FCM V1 push sender ────────────────────────────────────────────────────────
-
+// ── FCM V1 push sender ─────────────────────────────────────────────────────────
 async function sendPush(accessToken, fcmToken, title, body) {
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`, {
     method: "POST",
@@ -135,8 +145,7 @@ async function sendPush(accessToken, fcmToken, title, body) {
   return res.ok ? true : (console.error("FCM error:", result), false);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
+// ── Helpers ────────────────────────────────────────────────────────────────────
 function getTodayUTC() {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
@@ -148,8 +157,31 @@ function isDailyResetWindow() {
   return totalMins < 10; // 00:00–00:10 UTC
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+// Returns true if at least REMINDER_INTERVAL_HOURS have passed since lastReminderTime
+function isReminderDue(lastReminderTime) {
+  if (!lastReminderTime || lastReminderTime === "0") return true;
+  const intervalMs = REMINDER_INTERVAL_HOURS * 60 * 60 * 1000;
+  return Date.now() - Number(lastReminderTime) >= intervalMs;
+}
 
+// Pick a random reminder message
+function pickReminder() {
+  return REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
+}
+
+// Parse the game backup to check if tasks are incomplete today
+function hasIncompleteTasks(gameBackup) {
+  try {
+    const state = JSON.parse(gameBackup);
+    const tasks = state.dailyTasks || [];
+    // Only consider it "has incomplete" if there are active tasks that aren't done/failed
+    return tasks.some(t => !t.completed && !t.failed);
+  } catch {
+    return false; // can't parse, skip reminder
+  }
+}
+
+// ── Main handler ───────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   const auth = req.headers.authorization || "";
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -165,10 +197,12 @@ export default async function handler(req, res) {
 
     for (const user of users) {
       if (!user.fcmToken) continue;
-      const { id, fcmToken, bossId, bossStartTime, bossFailed, bossWon,
-              lastResetNotif, lastBossSpawnNotif } = user;
+      const {
+        id, fcmToken, bossId, bossStartTime, bossFailed, bossWon,
+        lastResetNotif, lastBossSpawnNotif, lastReminderTime, gameBackup,
+      } = user;
 
-      // 1 ── Boss appeared notification ──────────────────────────────────────
+      // 1 ── Boss appeared notification ────────────────────────────────────────
       if (bossId && bossFailed !== true && bossWon !== true && lastBossSpawnNotif !== bossId) {
         const boss = BOSSES[bossId];
         if (boss) {
@@ -184,7 +218,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // 2 ── Boss 30-min warning + expiry notification ───────────────────────
+      // 2 ── Boss 30-min warning + expiry notification ──────────────────────────
       if (bossId && bossFailed !== true && bossWon !== true && bossStartTime) {
         const boss = BOSSES[bossId];
         if (boss) {
@@ -219,7 +253,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // 3 ── Daily reset notification ────────────────────────────────────────
+      // 3 ── Daily reset notification ───────────────────────────────────────────
       if (doReset && lastResetNotif !== today) {
         const sent = await sendPush(token, fcmToken,
           "⚔ New Day. New Quests.",
@@ -228,6 +262,22 @@ export default async function handler(req, res) {
         if (sent) {
           await fsSet(token, "users", id, { ...user, lastResetNotif: today });
           actions.push({ userId:id, action:"daily_reset" });
+        }
+      }
+
+      // 4 ── Periodic quest reminder (every REMINDER_INTERVAL_HOURS) ───────────
+      // Skip if: daily reset window (just sent one), boss is active (they know),
+      // no incomplete tasks, or not enough time has passed
+      const bossCurrentlyActive = bossId && bossFailed !== true && bossWon !== true;
+      const tasksPending = gameBackup ? hasIncompleteTasks(gameBackup) : true; // default true if no backup
+      const reminderDue = isReminderDue(lastReminderTime);
+
+      if (!doReset && !bossCurrentlyActive && tasksPending && reminderDue) {
+        const reminder = pickReminder();
+        const sent = await sendPush(token, fcmToken, reminder.title, reminder.body);
+        if (sent) {
+          await fsSet(token, "users", id, { ...user, lastReminderTime: String(Date.now()) });
+          actions.push({ userId:id, action:"quest_reminder" });
         }
       }
     }
