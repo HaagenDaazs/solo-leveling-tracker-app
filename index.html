@@ -14,7 +14,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
@@ -108,264 +107,414 @@ const RANK_THRESHOLDS = [0,3000,9000,22000,50000,100000,180000,300000,500000];
 const RANK_COLORS = {E:"#888",D:"#4ade80",C:"#60a5fa",B:"#a78bfa",A:"#f59e0b",S:"#ef4444",SS:"#f97316",SSS:"#ec4899",National:"#fbbf24"};
 const STAT_RANK_XP = [0,400,1300,3100,6300,11800,20000,32000,50000];
 
-// ─── BOSS DATA ────────────────────────────────────────────────────────────────
-// timeLimitMs, tasks array, drops (title 5%, achievement 5%)
+// ─── EXPANDED BOSS DATA (50 bosses) ──────────────────────────────────────────
 const BOSSES = [
-  {
-    id:"goblin_king", tier:"common", name:"Goblin King", subtitle:"Lurker of the Shallow Dungeon",
-    timeLimitMs:2*60*60*1000, xpReward:80, color:"#4ade80", bgColor:"#0a1a0a",
-    tasks:[
-      {id:"t1",desc:"Do 15 push-ups",stat:"strength",xp:40},
-      {id:"t2",desc:"Walk or jog for 10 minutes",stat:"endurance",xp:35},
-      {id:"t3",desc:"Tidy one area of your space",stat:"discipline",xp:35},
-    ],
-    titleDrop:"Goblin Slayer",
-    achievementDrop:{id:"first_blood",name:"First Blood",desc:"Defeat your first dungeon boss",buff:{stat:"strength",pct:2}},
-    sprite:"goblin",
-  },
-  {
-    id:"stone_sentinel", tier:"uncommon", name:"Stone Sentinel", subtitle:"Guardian of the Iron Gate",
-    timeLimitMs:4*60*60*1000, xpReward:180, color:"#4ade80", bgColor:"#0a120a",
-    tasks:[
-      {id:"t1",desc:"Do 25 push-ups or 10 pull-ups",stat:"strength",xp:60},
-      {id:"t2",desc:"Run or walk 2km",stat:"endurance",xp:55},
-      {id:"t3",desc:"Read or study for 20 minutes",stat:"intelligence",xp:50},
-      {id:"t4",desc:"Meditate for 5 minutes",stat:"mental",xp:45},
-    ],
-    titleDrop:"Stone Breaker",
-    achievementDrop:{id:"iron_resolve",name:"Iron Resolve",desc:"Defeat the Stone Sentinel",buff:{stat:"endurance",pct:3}},
-    sprite:"golem",
-  },
-  {
-    id:"shadow_mage", tier:"rare", name:"Shadow Mage", subtitle:"Keeper of Forbidden Knowledge",
-    timeLimitMs:8*60*60*1000, xpReward:400, color:"#60a5fa", bgColor:"#080a14",
-    tasks:[
-      {id:"t1",desc:"Study or read for 45 minutes",stat:"intelligence",xp:90},
-      {id:"t2",desc:"Write in a journal or reflect for 10 min",stat:"mental",xp:80},
-      {id:"t3",desc:"Do 20 push-ups + 20 squats",stat:"strength",xp:75},
-      {id:"t4",desc:"Have a meaningful conversation",stat:"charisma",xp:70},
-      {id:"t5",desc:"No social media for 2 hours",stat:"discipline",xp:85},
-    ],
-    titleDrop:"Shadow Reader",
-    achievementDrop:{id:"arcane_mind",name:"Arcane Mind",desc:"Defeat the Shadow Mage",buff:{stat:"intelligence",pct:4}},
-    sprite:"mage",
-  },
-  {
-    id:"phantom_warlord", tier:"epic", name:"Phantom Warlord", subtitle:"General of the Fallen Army",
-    timeLimitMs:12*60*60*1000, xpReward:800, color:"#a78bfa", bgColor:"#0c0814",
-    tasks:[
-      {id:"t1",desc:"Complete a full workout (30+ min)",stat:"strength",xp:130},
-      {id:"t2",desc:"Run 3km or do 30 min cardio",stat:"endurance",xp:120},
-      {id:"t3",desc:"Study or read for 1 hour",stat:"intelligence",xp:110},
-      {id:"t4",desc:"Meditate for 15 minutes",stat:"mental",xp:100},
-      {id:"t5",desc:"Cook a healthy meal from scratch",stat:"creativity",xp:95},
-      {id:"t6",desc:"Do 30 push-ups + 30 squats + 10 pull-ups",stat:"strength",xp:120},
-    ],
-    titleDrop:"Phantom Killer",
-    achievementDrop:{id:"warlord_slayer",name:"Warlord's Bane",desc:"Defeat the Phantom Warlord",buff:{stat:"strength",pct:5}},
-    sprite:"warlord",
-  },
-  {
-    id:"ancient_sovereign", tier:"legendary", name:"Ancient Sovereign", subtitle:"The Undying Emperor",
-    timeLimitMs:18*60*60*1000, xpReward:1500, color:"#f59e0b", bgColor:"#120e00",
-    tasks:[
-      {id:"t1",desc:"Complete a 45-min strength workout",stat:"strength",xp:200},
-      {id:"t2",desc:"Run 5km or 45 min cardio",stat:"endurance",xp:190},
-      {id:"t3",desc:"Study or read for 90 minutes",stat:"intelligence",xp:185},
-      {id:"t4",desc:"Meditate for 20 minutes",stat:"mental",xp:175},
-      {id:"t5",desc:"Clean and organize your entire room",stat:"discipline",xp:180},
-      {id:"t6",desc:"Cook a complex recipe",stat:"creativity",xp:165},
-      {id:"t7",desc:"Reach out to 3 people you haven't spoken to",stat:"charisma",xp:155},
-    ],
-    titleDrop:"Sovereign's Heir",
-    achievementDrop:{id:"emperor_fallen",name:"Emperor Fallen",desc:"Defeat the Ancient Sovereign",buff:{stat:"discipline",pct:6}},
-    sprite:"emperor",
-  },
-  {
-    id:"void_deity", tier:"mythic", name:"Void Deity", subtitle:"God of the Abyss",
-    timeLimitMs:24*60*60*1000, xpReward:2500, color:"#ec4899", bgColor:"#130818",
-    tasks:[
-      {id:"t1",desc:"Complete a 1-hour full body workout",stat:"strength",xp:350},
-      {id:"t2",desc:"Run 8km or 60 min cardio",stat:"endurance",xp:340},
-      {id:"t3",desc:"Study or read for 2 hours straight",stat:"intelligence",xp:330},
-      {id:"t4",desc:"Meditate for 30 minutes",stat:"mental",xp:310},
-      {id:"t5",desc:"Zero social media or gaming all day",stat:"discipline",xp:320},
-      {id:"t6",desc:"Create something meaningful (art/music/writing/cooking)",stat:"creativity",xp:300},
-      {id:"t7",desc:"Sleep 8 hours the previous night",stat:"recovery",xp:290},
-      {id:"t8",desc:"Have 3 deep conversations or practice public speaking",stat:"charisma",xp:280},
-    ],
-    titleDrop:"Void Walker",
-    achievementDrop:{id:"godslayer_true",name:"True God-Slayer",desc:"Defeat the Void Deity",buff:{stat:"mental",pct:8}},
-    sprite:"deity",
-  },
+  // ── COMMON (15) ─────────────────────────────────────────────────────────────
+  {id:"goblin_king",tier:"common",name:"Goblin King",subtitle:"Lurker of the Shallow Dungeon",
+   timeLimitMs:2*3600000,xpReward:80,color:"#4ade80",bgColor:"#0a1a0a",sprite:"goblin",
+   titleDrop:"Goblin Slayer",achDrop:{id:"first_blood",name:"First Blood",desc:"Defeat your first dungeon boss",icon:"⚡",buff:{stat:"strength",pct:2}},
+   tasks:[{id:"t1",desc:"Do 15 push-ups",stat:"strength",xp:40},{id:"t2",desc:"Walk or jog 10 minutes",stat:"endurance",xp:35},{id:"t3",desc:"Tidy one area of your space",stat:"discipline",xp:35}]},
+  {id:"slime_horde",tier:"common",name:"Slime Horde",subtitle:"Swarm of the Shallow Caves",
+   timeLimitMs:1.5*3600000,xpReward:65,color:"#86efac",bgColor:"#091509",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"slime_clearer",name:"Slime Clearer",desc:"Defeat the Slime Horde",icon:"🟢",buff:{stat:"endurance",pct:1}},
+   tasks:[{id:"t1",desc:"Drink 8 glasses of water today",stat:"recovery",xp:30},{id:"t2",desc:"Do 20 jumping jacks",stat:"strength",xp:30},{id:"t3",desc:"Spend 5 minutes planning your day",stat:"discipline",xp:25}]},
+  {id:"rabid_wolves",tier:"common",name:"Rabid Wolf Pack",subtitle:"Feral Hunters of the Forest Edge",
+   timeLimitMs:2*3600000,xpReward:75,color:"#a3e635",bgColor:"#0a1205",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"wolf_hunter",name:"Wolf Hunter",desc:"Defeat the Rabid Wolf Pack",icon:"🐺",buff:{stat:"endurance",pct:1}},
+   tasks:[{id:"t1",desc:"Go for a 15-minute walk",stat:"endurance",xp:40},{id:"t2",desc:"Do 3 sets of any exercise",stat:"strength",xp:35}]},
+  {id:"cave_bat_swarm",tier:"common",name:"Cave Bat Swarm",subtitle:"Screeching Darkness",
+   timeLimitMs:1.5*3600000,xpReward:70,color:"#94a3b8",bgColor:"#0a0a12",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"bat_blitz",name:"Bat Blitz",desc:"Defeat the Cave Bat Swarm",icon:"🦇",buff:{stat:"mental",pct:1}},
+   tasks:[{id:"t1",desc:"Read for 20 minutes",stat:"intelligence",xp:35},{id:"t2",desc:"Meditate or breathe deeply for 5 minutes",stat:"mental",xp:35}]},
+  {id:"skeleton_grunt",tier:"common",name:"Skeleton Grunt",subtitle:"Reanimated Foot Soldier",
+   timeLimitMs:2*3600000,xpReward:80,color:"#e2e8f0",bgColor:"#101018",sprite:"goblin",
+   titleDrop:"Bone Breaker",achDrop:null,
+   tasks:[{id:"t1",desc:"Make your bed and tidy your room",stat:"discipline",xp:35},{id:"t2",desc:"Do 20 squats",stat:"strength",xp:40},{id:"t3",desc:"Avoid junk food all day",stat:"recovery",xp:35}]},
+  {id:"mud_golem",tier:"common",name:"Mud Golem",subtitle:"Shambling Earth Spirit",
+   timeLimitMs:2*3600000,xpReward:85,color:"#a16207",bgColor:"#110d00",sprite:"golem",
+   titleDrop:null,achDrop:{id:"mud_masher",name:"Mud Masher",desc:"Defeat the Mud Golem",icon:"🪨",buff:{stat:"strength",pct:1}},
+   tasks:[{id:"t1",desc:"Do 25 push-ups",stat:"strength",xp:45},{id:"t2",desc:"Stretch for 10 minutes",stat:"recovery",xp:35},{id:"t3",desc:"Clean dishes or kitchen",stat:"discipline",xp:35}]},
+  {id:"forest_sprite",tier:"common",name:"Feral Forest Sprite",subtitle:"Mischievous Spirit of Distraction",
+   timeLimitMs:1.5*3600000,xpReward:70,color:"#4ade80",bgColor:"#091509",sprite:"goblin",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"No social media for 1 hour",stat:"discipline",xp:40},{id:"t2",desc:"Meditate for 10 minutes",stat:"mental",xp:35}]},
+  {id:"dust_wisp",tier:"common",name:"Dust Wisp",subtitle:"Born of Neglect",
+   timeLimitMs:1.5*3600000,xpReward:65,color:"#cbd5e1",bgColor:"#0d0d14",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"first_clean",name:"First Clean",desc:"Defeat the Dust Wisp",icon:"✨",buff:{stat:"discipline",pct:1}},
+   tasks:[{id:"t1",desc:"Deep clean one room",stat:"discipline",xp:45},{id:"t2",desc:"Take out trash and organize",stat:"discipline",xp:35}]},
+  {id:"rusted_construct",tier:"common",name:"Rusted Construct",subtitle:"Ancient Machine Left to Corrode",
+   timeLimitMs:2*3600000,xpReward:80,color:"#b45309",bgColor:"#120900",sprite:"golem",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"Complete one overdue task",stat:"discipline",xp:50},{id:"t2",desc:"Plan tomorrow before bed",stat:"intelligence",xp:40}]},
+  {id:"shadow_rat",tier:"common",name:"Shadow Rat King",subtitle:"Vermin Lord of the Sewers",
+   timeLimitMs:2*3600000,xpReward:90,color:"#6b7280",bgColor:"#0a0a0a",sprite:"goblin",
+   titleDrop:"Rat Exterminator",achDrop:null,
+   tasks:[{id:"t1",desc:"Go to bed before midnight",stat:"recovery",xp:40},{id:"t2",desc:"Do 30 bodyweight squats",stat:"strength",xp:40},{id:"t3",desc:"Tidy your workspace",stat:"discipline",xp:30}]},
+  {id:"fog_lurker",tier:"common",name:"Fog Lurker",subtitle:"Creature of Morning Inaction",
+   timeLimitMs:1.5*3600000,xpReward:75,color:"#93c5fd",bgColor:"#080d14",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"early_riser",name:"Dawn Breaker",desc:"Defeat the Fog Lurker",icon:"🌅",buff:{stat:"discipline",pct:2}},
+   tasks:[{id:"t1",desc:"Wake up and get out of bed immediately",stat:"discipline",xp:40},{id:"t2",desc:"Drink water and eat breakfast",stat:"recovery",xp:35}]},
+  {id:"iron_crab",tier:"common",name:"Iron Crab",subtitle:"Armored Scuttler of the Deep",
+   timeLimitMs:2*3600000,xpReward:85,color:"#64748b",bgColor:"#0a0c10",sprite:"golem",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"Write a to-do list and complete 3 items",stat:"discipline",xp:45},{id:"t2",desc:"Do 15 push-ups + 15 sit-ups",stat:"strength",xp:40}]},
+  {id:"lesser_banshee",tier:"common",name:"Lesser Banshee",subtitle:"Wailing Spirit of Stress",
+   timeLimitMs:2*3600000,xpReward:85,color:"#c4b5fd",bgColor:"#0d0814",sprite:"mage",
+   titleDrop:null,achDrop:{id:"stress_slayer",name:"Stress Slayer",desc:"Defeat the Lesser Banshee",icon:"😤",buff:{stat:"mental",pct:2}},
+   tasks:[{id:"t1",desc:"Clear your email or message inbox",stat:"discipline",xp:40},{id:"t2",desc:"Journal or reflect for 10 minutes",stat:"mental",xp:45}]},
+  {id:"rock_troll",tier:"common",name:"Rock Troll",subtitle:"Slow-Witted Mountain Guard",
+   timeLimitMs:2*3600000,xpReward:90,color:"#78716c",bgColor:"#0e0c0a",sprite:"golem",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"Exercise for 3 days in a row (mark each day)",stat:"endurance",xp:50},{id:"t2",desc:"Eat vegetables with every meal today",stat:"recovery",xp:40}]},
+  {id:"wandering_shade",tier:"common",name:"Wandering Shade",subtitle:"Lost Soul Without Purpose",
+   timeLimitMs:1.5*3600000,xpReward:70,color:"#475569",bgColor:"#080a10",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"shade_ended",name:"Shade Ended",desc:"Defeat the Wandering Shade",icon:"🌑",buff:{stat:"mental",pct:1}},
+   tasks:[{id:"t1",desc:"Set one concrete goal for the week",stat:"intelligence",xp:40},{id:"t2",desc:"Spend 15 minutes in silence without a phone",stat:"mental",xp:40}]},
+
+  // ── UNCOMMON (12) ────────────────────────────────────────────────────────────
+  {id:"orc_captain",tier:"uncommon",name:"Orc Captain",subtitle:"Veteran Warbringer",
+   timeLimitMs:3*3600000,xpReward:160,color:"#4ade80",bgColor:"#0a1a0a",sprite:"warlord",
+   titleDrop:"Orc Slayer",achDrop:{id:"hundred_club",name:"Hundred Club",desc:"Defeat the Orc Captain",icon:"💯",buff:{stat:"strength",pct:2}},
+   tasks:[{id:"t1",desc:"Complete 5 tasks today",stat:"discipline",xp:60},{id:"t2",desc:"Do a 20-min workout",stat:"strength",xp:55},{id:"t3",desc:"Cook and eat a home meal",stat:"creativity",xp:50}]},
+  {id:"stone_sentinel",tier:"uncommon",name:"Stone Sentinel",subtitle:"Guardian of the Iron Gate",
+   timeLimitMs:4*3600000,xpReward:180,color:"#4ade80",bgColor:"#0a120a",sprite:"golem",
+   titleDrop:"Stone Breaker",achDrop:{id:"iron_resolve",name:"Iron Resolve",desc:"Defeat the Stone Sentinel",icon:"🛡",buff:{stat:"endurance",pct:3}},
+   tasks:[{id:"t1",desc:"Do 25 push-ups or 10 pull-ups",stat:"strength",xp:60},{id:"t2",desc:"Run or walk 2km",stat:"endurance",xp:55},{id:"t3",desc:"Read or study for 20 minutes",stat:"intelligence",xp:50},{id:"t4",desc:"Meditate for 5 minutes",stat:"mental",xp:45}]},
+  {id:"black_fox",tier:"uncommon",name:"Black Fox Trickster",subtitle:"Cunning Beast of Illusions",
+   timeLimitMs:3*3600000,xpReward:165,color:"#fbbf24",bgColor:"#120e00",sprite:"goblin",
+   titleDrop:"Fox Outwitter",achDrop:null,
+   tasks:[{id:"t1",desc:"No social media for 3 hours",stat:"discipline",xp:65},{id:"t2",desc:"Work on one important task without stopping",stat:"intelligence",xp:60},{id:"t3",desc:"Go outside for 10 minutes",stat:"endurance",xp:50}]},
+  {id:"ice_wraith",tier:"uncommon",name:"Ice Wraith",subtitle:"Frozen Terror of the Abyss",
+   timeLimitMs:4*3600000,xpReward:190,color:"#7dd3fc",bgColor:"#080e14",sprite:"mage",
+   titleDrop:"Frost Breaker",achDrop:{id:"cold_snap",name:"Cold Snap",desc:"Defeat the Ice Wraith",icon:"❄️",buff:{stat:"mental",pct:2}},
+   tasks:[{id:"t1",desc:"Take a cold shower",stat:"mental",xp:70},{id:"t2",desc:"Do 20 push-ups + 20 squats",stat:"strength",xp:60},{id:"t3",desc:"Drink 2L of water",stat:"recovery",xp:55}]},
+  {id:"venomfang",tier:"uncommon",name:"Venomfang Serpent",subtitle:"Striking from the Shadows",
+   timeLimitMs:3*3600000,xpReward:170,color:"#86efac",bgColor:"#091209",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"snake_charmer",name:"Snake Charmer",desc:"Defeat Venomfang Serpent",icon:"🐍",buff:{stat:"discipline",pct:2}},
+   tasks:[{id:"t1",desc:"Cook a healthy meal from scratch",stat:"creativity",xp:65},{id:"t2",desc:"Do 30 minutes of exercise",stat:"endurance",xp:60},{id:"t3",desc:"Read 20 pages of a book",stat:"intelligence",xp:55}]},
+  {id:"thornback",tier:"uncommon",name:"Thornback Tortoise",subtitle:"Impenetrable Shell, Patient Hunter",
+   timeLimitMs:4*3600000,xpReward:185,color:"#84cc16",bgColor:"#0a1000",sprite:"golem",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"Work uninterrupted for 90 minutes",stat:"discipline",xp:70},{id:"t2",desc:"Stretch and foam roll for 15 minutes",stat:"recovery",xp:55},{id:"t3",desc:"Have a meaningful conversation",stat:"charisma",xp:55}]},
+  {id:"night_stalker",tier:"uncommon",name:"Night Stalker",subtitle:"Predator When Your Guard is Down",
+   timeLimitMs:4*3600000,xpReward:195,color:"#6366f1",bgColor:"#08080f",sprite:"mage",
+   titleDrop:"Night Hunter",achDrop:null,
+   tasks:[{id:"t1",desc:"Complete your tasks after 8 PM",stat:"discipline",xp:65},{id:"t2",desc:"Plan tomorrow's schedule before midnight",stat:"intelligence",xp:60},{id:"t3",desc:"Sleep 8 hours tonight",stat:"recovery",xp:65}]},
+  {id:"cursed_knight",tier:"uncommon",name:"Cursed Knight",subtitle:"Fallen Warrior Still Bound by Duty",
+   timeLimitMs:4*3600000,xpReward:205,color:"#94a3b8",bgColor:"#0a0c10",sprite:"warlord",
+   titleDrop:"Curse Breaker",achDrop:{id:"hex_resistant",name:"Hex Resistant",desc:"Defeat the Cursed Knight",icon:"🔮",buff:{stat:"discipline",pct:3}},
+   tasks:[{id:"t1",desc:"Complete every item on your to-do list",stat:"discipline",xp:75},{id:"t2",desc:"Do a 25-minute workout",stat:"strength",xp:65},{id:"t3",desc:"Spend 15 minutes on a creative hobby",stat:"creativity",xp:60}]},
+  {id:"bog_witch",tier:"uncommon",name:"Bog Witch",subtitle:"She Who Hexes Willpower",
+   timeLimitMs:3*3600000,xpReward:175,color:"#a78bfa",bgColor:"#0d0814",sprite:"mage",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"Resist a bad habit for the full day",stat:"discipline",xp:70},{id:"t2",desc:"Journal for 15 minutes",stat:"mental",xp:55},{id:"t3",desc:"Drink only water all day",stat:"recovery",xp:55}]},
+  {id:"dungeon_hawk",tier:"uncommon",name:"Dungeon Hawk",subtitle:"Aerial Predator, Always Watching",
+   timeLimitMs:3*3600000,xpReward:165,color:"#fbbf24",bgColor:"#120c00",sprite:"goblin",
+   titleDrop:null,achDrop:{id:"energy_reclaim",name:"Energy Reclaimed",desc:"Defeat the Dungeon Hawk",icon:"⚡",buff:{stat:"endurance",pct:2}},
+   tasks:[{id:"t1",desc:"Complete a task you've been putting off",stat:"discipline",xp:65},{id:"t2",desc:"Go for a 20-minute walk or run",stat:"endurance",xp:55}]},
+  {id:"fire_lizard",tier:"uncommon",name:"Greater Fire Lizard",subtitle:"Blazing Arrogance Incarnate",
+   timeLimitMs:4*3600000,xpReward:200,color:"#f97316",bgColor:"#120800",sprite:"goblin",
+   titleDrop:"Flame Tamer",achDrop:null,
+   tasks:[{id:"t1",desc:"Finish a project or assignment completely",stat:"discipline",xp:70},{id:"t2",desc:"Do 30 minutes of focused study",stat:"intelligence",xp:65},{id:"t3",desc:"Do 20 push-ups + 20 lunges",stat:"strength",xp:60}]},
+  {id:"mana_leech",tier:"uncommon",name:"Mana Leech",subtitle:"Drainer of Energy and Focus",
+   timeLimitMs:3*3600000,xpReward:180,color:"#818cf8",bgColor:"#0a0814",sprite:"mage",
+   titleDrop:null,achDrop:null,
+   tasks:[{id:"t1",desc:"Sleep 8 hours (schedule it)",stat:"recovery",xp:65},{id:"t2",desc:"Limit screen time to under 2 hours",stat:"discipline",xp:65},{id:"t3",desc:"Eat a nutritious meal",stat:"recovery",xp:55}]},
+
+  // ── RARE (10) ────────────────────────────────────────────────────────────────
+  {id:"shadow_mage",tier:"rare",name:"Shadow Mage",subtitle:"Keeper of Forbidden Knowledge",
+   timeLimitMs:8*3600000,xpReward:400,color:"#60a5fa",bgColor:"#080a14",sprite:"mage",
+   titleDrop:"Shadow Reader",achDrop:{id:"arcane_mind",name:"Arcane Mind",desc:"Defeat the Shadow Mage",icon:"🪄",buff:{stat:"intelligence",pct:4}},
+   tasks:[{id:"t1",desc:"Study or read for 45 minutes",stat:"intelligence",xp:90},{id:"t2",desc:"Journal or reflect for 10 minutes",stat:"mental",xp:80},{id:"t3",desc:"Do 20 push-ups + 20 squats",stat:"strength",xp:75},{id:"t4",desc:"Have a meaningful conversation",stat:"charisma",xp:70},{id:"t5",desc:"No social media for 2 hours",stat:"discipline",xp:85}]},
+  {id:"iron_colossus",tier:"rare",name:"Iron Colossus",subtitle:"Behemoth of Ancient Steel",
+   timeLimitMs:8*3600000,xpReward:420,color:"#94a3b8",bgColor:"#0a0c10",sprite:"golem",
+   titleDrop:"Colossus Feller",achDrop:null,
+   tasks:[{id:"t1",desc:"Do 100 push-ups (spread across day)",stat:"strength",xp:95},{id:"t2",desc:"Run 3km or walk 6km",stat:"endurance",xp:90},{id:"t3",desc:"Drink 3L of water",stat:"recovery",xp:75},{id:"t4",desc:"Stretch for 20 minutes",stat:"recovery",xp:70}]},
+  {id:"vengeance_spirit",tier:"rare",name:"Spirit of Vengeance",subtitle:"Born From Every Missed Goal",
+   timeLimitMs:8*3600000,xpReward:400,color:"#f87171",bgColor:"#120808",sprite:"mage",
+   titleDrop:"Regret Slayer",achDrop:{id:"facing_ghosts",name:"Facing Ghosts",desc:"Defeat the Spirit of Vengeance",icon:"👻",buff:{stat:"mental",pct:3}},
+   tasks:[{id:"t1",desc:"Write down 3 regrets and a plan to fix each",stat:"mental",xp:90},{id:"t2",desc:"Complete one long-overdue task",stat:"discipline",xp:85},{id:"t3",desc:"Reach out and apologize or reconnect with someone",stat:"charisma",xp:80},{id:"t4",desc:"Do 30 minutes of physical activity",stat:"endurance",xp:75}]},
+  {id:"plague_herald",tier:"rare",name:"Plague Herald",subtitle:"Harbinger of Bad Habits",
+   timeLimitMs:6*3600000,xpReward:380,color:"#84cc16",bgColor:"#0a1000",sprite:"mage",
+   titleDrop:null,achDrop:{id:"purifier",name:"Purifier",desc:"Defeat the Plague Herald",icon:"✨",buff:{stat:"recovery",pct:3}},
+   tasks:[{id:"t1",desc:"Eat clean — no processed food today",stat:"recovery",xp:90},{id:"t2",desc:"Exercise for 35 minutes",stat:"endurance",xp:85},{id:"t3",desc:"Sleep by 10:30 PM",stat:"recovery",xp:80},{id:"t4",desc:"Meditate for 15 minutes",stat:"mental",xp:75}]},
+  {id:"void_watcher",tier:"rare",name:"Void Watcher",subtitle:"Eye That Sees All Procrastination",
+   timeLimitMs:8*3600000,xpReward:410,color:"#a78bfa",bgColor:"#0d0814",sprite:"mage",
+   titleDrop:"Eye Slayer",achDrop:null,
+   tasks:[{id:"t1",desc:"Complete 7 tasks today",stat:"discipline",xp:95},{id:"t2",desc:"Plan the full week ahead",stat:"intelligence",xp:85},{id:"t3",desc:"Work 2 hours without any distractions",stat:"discipline",xp:90},{id:"t4",desc:"Do a 30-minute workout",stat:"strength",xp:80}]},
+  {id:"twin_serpents",tier:"rare",name:"Twin Serpents",subtitle:"Two Minds, One Enemy",
+   timeLimitMs:8*3600000,xpReward:440,color:"#4ade80",bgColor:"#091309",sprite:"goblin",
+   titleDrop:"Dual Slayer",achDrop:{id:"twin_kill",name:"Twin Kill",desc:"Defeat the Twin Serpents",icon:"⚔️",buff:{stat:"strength",pct:3}},
+   tasks:[{id:"t1",desc:"Complete 2 different skill-based tasks today",stat:"intelligence",xp:90},{id:"t2",desc:"Do both a strength and cardio workout",stat:"endurance",xp:85},{id:"t3",desc:"Read AND write something today",stat:"creativity",xp:80},{id:"t4",desc:"Cook a meal AND clean afterward",stat:"discipline",xp:80}]},
+  {id:"thunder_drake",tier:"rare",name:"Thunder Drake",subtitle:"Young Dragon of Raw Power",
+   timeLimitMs:8*3600000,xpReward:450,color:"#fbbf24",bgColor:"#120e00",sprite:"warlord",
+   titleDrop:"Drake Rider",achDrop:null,
+   tasks:[{id:"t1",desc:"Run or walk 5km",stat:"endurance",xp:95},{id:"t2",desc:"Do 40 push-ups + 40 squats",stat:"strength",xp:90},{id:"t3",desc:"Study or read for 1 hour",stat:"intelligence",xp:85},{id:"t4",desc:"Stretch for 15 minutes after workout",stat:"recovery",xp:75}]},
+  {id:"necrolord",tier:"rare",name:"Necrolord",subtitle:"Commander of the Undead Tide",
+   timeLimitMs:8*3600000,xpReward:430,color:"#c084fc",bgColor:"#0d0814",sprite:"emperor",
+   titleDrop:"Life Ascendant",achDrop:{id:"undead_ender",name:"Undead Ender",desc:"Defeat the Necrolord",icon:"💀",buff:{stat:"discipline",pct:3}},
+   tasks:[{id:"t1",desc:"Complete all daily tasks for 2 days in a row",stat:"discipline",xp:95},{id:"t2",desc:"Avoid all unhealthy food for 48 hours",stat:"recovery",xp:90},{id:"t3",desc:"Exercise both days",stat:"strength",xp:85},{id:"t4",desc:"Sleep 8 hours each night",stat:"recovery",xp:80}]},
+  {id:"mirror_demon",tier:"rare",name:"Mirror Demon",subtitle:"Wears Your Face, Mirrors Your Worst Habits",
+   timeLimitMs:6*3600000,xpReward:400,color:"#e2e8f0",bgColor:"#0e0e14",sprite:"mage",
+   titleDrop:"Self-Conqueror",achDrop:{id:"mirror_break",name:"Mirror Shattered",desc:"Defeat the Mirror Demon",icon:"🪞",buff:{stat:"mental",pct:4}},
+   tasks:[{id:"t1",desc:"Identify one bad habit and avoid it all day",stat:"discipline",xp:90},{id:"t2",desc:"Journal about your patterns and triggers",stat:"mental",xp:85},{id:"t3",desc:"Do the opposite of your laziest tendency today",stat:"discipline",xp:80},{id:"t4",desc:"Meditate for 20 minutes",stat:"mental",xp:80}]},
+  {id:"cursed_archivist",tier:"rare",name:"Cursed Archivist",subtitle:"Undead Scholar of Forbidden Texts",
+   timeLimitMs:6*3600000,xpReward:370,color:"#7dd3fc",bgColor:"#080e14",sprite:"mage",
+   titleDrop:"Loremaster",achDrop:null,
+   tasks:[{id:"t1",desc:"Read for 30 minutes",stat:"intelligence",xp:85},{id:"t2",desc:"Learn something new and write a note about it",stat:"intelligence",xp:80},{id:"t3",desc:"Organize your notes or documents",stat:"discipline",xp:75},{id:"t4",desc:"Teach someone something you learned",stat:"charisma",xp:70}]},
+
+  // ── EPIC (7) ─────────────────────────────────────────────────────────────────
+  {id:"phantom_warlord",tier:"epic",name:"Phantom Warlord",subtitle:"General of the Fallen Army",
+   timeLimitMs:12*3600000,xpReward:800,color:"#a78bfa",bgColor:"#0c0814",sprite:"warlord",
+   titleDrop:"Phantom Killer",achDrop:{id:"warlord_slayer",name:"Warlord's Bane",desc:"Defeat the Phantom Warlord",icon:"👑",buff:{stat:"strength",pct:5}},
+   tasks:[{id:"t1",desc:"Complete a full 30+ min workout",stat:"strength",xp:130},{id:"t2",desc:"Run 3km or 30 min cardio",stat:"endurance",xp:120},{id:"t3",desc:"Study or read for 1 hour",stat:"intelligence",xp:110},{id:"t4",desc:"Meditate for 15 minutes",stat:"mental",xp:100},{id:"t5",desc:"Cook a healthy meal from scratch",stat:"creativity",xp:95},{id:"t6",desc:"Do 30 push-ups + 30 squats + 10 pull-ups",stat:"strength",xp:120}]},
+  {id:"abyssal_hydra",tier:"epic",name:"Abyssal Hydra",subtitle:"Cut One Head, Two More Grow Back",
+   timeLimitMs:12*3600000,xpReward:830,color:"#06b6d4",bgColor:"#080e12",sprite:"deity",
+   titleDrop:"Hydra Slayer",achDrop:{id:"multi_front",name:"Multi-Front War",desc:"Defeat the Abyssal Hydra",icon:"🐉",buff:{stat:"endurance",pct:4}},
+   tasks:[{id:"t1",desc:"Complete tasks in 5 different stat categories",stat:"discipline",xp:140},{id:"t2",desc:"Work on 3 different projects in one day",stat:"intelligence",xp:130},{id:"t3",desc:"Workout, read, AND cook today",stat:"creativity",xp:120},{id:"t4",desc:"Complete all current quests",stat:"discipline",xp:130},{id:"t5",desc:"Help or connect with 2 people",stat:"charisma",xp:110}]},
+  {id:"elder_demon",tier:"epic",name:"Elder Demon",subtitle:"Ancient Being of Pure Malice",
+   timeLimitMs:14*3600000,xpReward:850,color:"#dc2626",bgColor:"#140808",sprite:"deity",
+   titleDrop:"Demon Conquered",achDrop:{id:"elder_defeated",name:"Elder Slain",desc:"Defeat the Elder Demon",icon:"🔥",buff:{stat:"mental",pct:5}},
+   tasks:[{id:"t1",desc:"Complete all daily quests for 3 days straight",stat:"discipline",xp:150},{id:"t2",desc:"Do a 45-minute workout",stat:"strength",xp:140},{id:"t3",desc:"Study or read for 1.5 hours",stat:"intelligence",xp:130},{id:"t4",desc:"No screens for 2 hours",stat:"mental",xp:130},{id:"t5",desc:"Cook 2 meals from scratch",stat:"creativity",xp:120}]},
+  {id:"storm_leviathan",tier:"epic",name:"Storm Leviathan",subtitle:"Sea Beast the Size of a City Block",
+   timeLimitMs:12*3600000,xpReward:810,color:"#38bdf8",bgColor:"#080c14",sprite:"deity",
+   titleDrop:"Leviathan Lord",achDrop:null,
+   tasks:[{id:"t1",desc:"Do a full workout 2 days in a row",stat:"endurance",xp:140},{id:"t2",desc:"Run 5km total",stat:"endurance",xp:130},{id:"t3",desc:"Eat clean for 48 hours straight",stat:"recovery",xp:130},{id:"t4",desc:"Sleep 8 hours both nights",stat:"recovery",xp:120},{id:"t5",desc:"Meditate for 20 minutes",stat:"mental",xp:110}]},
+  {id:"curse_incarnate",tier:"epic",name:"Curse Incarnate",subtitle:"Pure Negative Energy Given Form",
+   timeLimitMs:14*3600000,xpReward:870,color:"#8b5cf6",bgColor:"#0c0814",sprite:"deity",
+   titleDrop:"Unburdened",achDrop:{id:"will_of_iron",name:"Will of Iron",desc:"Defeat Curse Incarnate",icon:"🛡️",buff:{stat:"discipline",pct:5}},
+   tasks:[{id:"t1",desc:"No sugar, junk food, or alcohol for 3 days",stat:"recovery",xp:155},{id:"t2",desc:"Exercise every day for 3 days",stat:"endurance",xp:145},{id:"t3",desc:"Sleep by 10:30 PM all 3 nights",stat:"recovery",xp:135},{id:"t4",desc:"Zero social media for 48 hours",stat:"discipline",xp:130},{id:"t5",desc:"Meditate 15 min each day",stat:"mental",xp:120}]},
+  {id:"war_archon",tier:"epic",name:"War Archon",subtitle:"Divine Warrior Fallen From Grace",
+   timeLimitMs:14*3600000,xpReward:910,color:"#f97316",bgColor:"#120800",sprite:"emperor",
+   titleDrop:"Archon's Rival",achDrop:{id:"archon_slain",name:"Archon Fallen",desc:"Defeat the War Archon",icon:"⚡",buff:{stat:"strength",pct:5}},
+   tasks:[{id:"t1",desc:"Earn 500 XP in a single day",stat:"discipline",xp:160},{id:"t2",desc:"Complete a 45-minute intense workout",stat:"strength",xp:150},{id:"t3",desc:"Study or read for 2 hours",stat:"intelligence",xp:140},{id:"t4",desc:"Hit 10,000 steps today",stat:"endurance",xp:130},{id:"t5",desc:"Cold shower + 10 min meditation",stat:"mental",xp:120}]},
+  {id:"dusk_colossus",tier:"epic",name:"Dusk Colossus",subtitle:"Giant That Grows Stronger as Night Falls",
+   timeLimitMs:12*3600000,xpReward:840,color:"#fb923c",bgColor:"#120900",sprite:"golem",
+   titleDrop:"Dusk Breaker",achDrop:null,
+   tasks:[{id:"t1",desc:"Complete 10 tasks before 6 PM",stat:"discipline",xp:150},{id:"t2",desc:"Wake up before 7 AM and exercise",stat:"endurance",xp:140},{id:"t3",desc:"Finish all work before sunset",stat:"discipline",xp:130},{id:"t4",desc:"Plan the next 3 days in advance",stat:"intelligence",xp:120},{id:"t5",desc:"Cook dinner and eat by 7 PM",stat:"creativity",xp:110}]},
+
+  // ── LEGENDARY (4) ────────────────────────────────────────────────────────────
+  {id:"ancient_sovereign",tier:"legendary",name:"Ancient Sovereign",subtitle:"The Undying Emperor",
+   timeLimitMs:18*3600000,xpReward:1500,color:"#f59e0b",bgColor:"#120e00",sprite:"emperor",
+   titleDrop:"Sovereign's Heir",achDrop:{id:"emperor_fallen",name:"Emperor Fallen",desc:"Defeat the Ancient Sovereign",icon:"🌟",buff:{stat:"discipline",pct:6}},
+   tasks:[{id:"t1",desc:"Complete a 45-min strength workout",stat:"strength",xp:200},{id:"t2",desc:"Run 5km or 45 min cardio",stat:"endurance",xp:190},{id:"t3",desc:"Study or read for 90 minutes",stat:"intelligence",xp:185},{id:"t4",desc:"Meditate for 20 minutes",stat:"mental",xp:175},{id:"t5",desc:"Clean and organize your entire space",stat:"discipline",xp:180},{id:"t6",desc:"Cook a complex recipe",stat:"creativity",xp:165},{id:"t7",desc:"Reach out to 3 people you care about",stat:"charisma",xp:155}]},
+  {id:"eternal_guardian",tier:"legendary",name:"Eternal Guardian",subtitle:"Watcher of a Thousand Civilizations",
+   timeLimitMs:20*3600000,xpReward:1600,color:"#e2e8f0",bgColor:"#0e0e14",sprite:"emperor",
+   titleDrop:"Eternally Watched",achDrop:{id:"eternity_trial",name:"Eternity Passed",desc:"Defeat the Eternal Guardian",icon:"♾️",buff:{stat:"endurance",pct:6}},
+   tasks:[{id:"t1",desc:"Maintain a single habit for 7 days straight",stat:"discipline",xp:220},{id:"t2",desc:"Exercise every day for 5 days",stat:"endurance",xp:210},{id:"t3",desc:"Read 30 mins every day for 7 days",stat:"intelligence",xp:200},{id:"t4",desc:"Meditate daily for 7 days",stat:"mental",xp:195},{id:"t5",desc:"Sleep 8 hours every night for 5 days",stat:"recovery",xp:185},{id:"t6",desc:"Cook every meal at home for 3 days",stat:"creativity",xp:175}]},
+  {id:"death_incarnate",tier:"legendary",name:"Death Incarnate",subtitle:"Not the End — the Final Exam",
+   timeLimitMs:24*3600000,xpReward:1700,color:"#6b7280",bgColor:"#0a0a0a",sprite:"deity",
+   titleDrop:"Death-Defier",achDrop:{id:"death_trial",name:"Death Defied",desc:"Defeat Death Incarnate",icon:"💀",buff:{stat:"mental",pct:7}},
+   tasks:[{id:"t1",desc:"Complete 50 total quests (cumulative)",stat:"discipline",xp:240},{id:"t2",desc:"Run 10km total over 2 days",stat:"endurance",xp:220},{id:"t3",desc:"Study or read for 3 hours total",stat:"intelligence",xp:210},{id:"t4",desc:"Fast for 16 hours",stat:"recovery",xp:200},{id:"t5",desc:"Do 200 push-ups total over the day",stat:"strength",xp:215},{id:"t6",desc:"Journal deeply about your goals and fears",stat:"mental",xp:195}]},
+  {id:"the_forsaken_king",tier:"legendary",name:"The Forsaken King",subtitle:"He Who Had Everything and Lost It",
+   timeLimitMs:24*3600000,xpReward:1850,color:"#7c3aed",bgColor:"#0c0814",sprite:"emperor",
+   titleDrop:"King's Usurper",achDrop:{id:"forsaken_king",name:"King Forsaken",desc:"Defeat the Forsaken King",icon:"👑",buff:{stat:"charisma",pct:6}},
+   tasks:[{id:"t1",desc:"Reach level 40 in the game",stat:"discipline",xp:260},{id:"t2",desc:"Complete a full-body workout",stat:"strength",xp:240},{id:"t3",desc:"Read a full book chapter (or 50+ pages)",stat:"intelligence",xp:230},{id:"t4",desc:"Reconnect with 3 people",stat:"charisma",xp:220},{id:"t5",desc:"Create something you're proud of",stat:"creativity",xp:210},{id:"t6",desc:"Reflect and write a page about your life direction",stat:"mental",xp:205}]},
+
+  // ── MYTHIC (2) ───────────────────────────────────────────────────────────────
+  {id:"void_deity",tier:"mythic",name:"Void Deity",subtitle:"God of the Abyss",
+   timeLimitMs:36*3600000,xpReward:2500,color:"#ec4899",bgColor:"#130818",sprite:"deity",
+   titleDrop:"Void Walker",achDrop:{id:"godslayer_true",name:"True God-Slayer",desc:"Defeat the Void Deity",icon:"🌌",buff:{stat:"mental",pct:8}},
+   tasks:[{id:"t1",desc:"Complete a 1-hour full body workout",stat:"strength",xp:350},{id:"t2",desc:"Run 8km or 60 min cardio",stat:"endurance",xp:340},{id:"t3",desc:"Study or read for 2 hours straight",stat:"intelligence",xp:330},{id:"t4",desc:"Meditate for 30 minutes",stat:"mental",xp:310},{id:"t5",desc:"Zero social media or gaming all day",stat:"discipline",xp:320},{id:"t6",desc:"Create something meaningful",stat:"creativity",xp:300},{id:"t7",desc:"Sleep 8 hours the previous night",stat:"recovery",xp:290},{id:"t8",desc:"Have 3 deep conversations today",stat:"charisma",xp:280}]},
+  {id:"the_shadow_monarch",tier:"mythic",name:"The Shadow Monarch",subtitle:"The Apex. The Final Challenge.",
+   timeLimitMs:48*3600000,xpReward:3000,color:"#c084fc",bgColor:"#0d0814",sprite:"deity",
+   titleDrop:"Shadow Monarch",achDrop:{id:"monarch_slain",name:"Monarch Falls",desc:"Defeat the Shadow Monarch",icon:"🌑",buff:{stat:"strength",pct:10}},
+   tasks:[{id:"t1",desc:"Reach level 75 in the game",stat:"discipline",xp:400},{id:"t2",desc:"Run 10km or 90 min cardio",stat:"endurance",xp:380},{id:"t3",desc:"Complete a 1-hour intense strength workout",stat:"strength",xp:370},{id:"t4",desc:"Study or read for 3 hours",stat:"intelligence",xp:360},{id:"t5",desc:"Meditate for 45 minutes total",stat:"mental",xp:350},{id:"t6",desc:"No screens except work for full 48h",stat:"discipline",xp:340},{id:"t7",desc:"Sleep 8 hours both nights",stat:"recovery",xp:330},{id:"t8",desc:"Complete all your daily quests both days",stat:"discipline",xp:350}]},
 ];
 
-// ─── ACHIEVEMENTS CATALOG ─────────────────────────────────────────────────────
-// These are all the hidden achievements. unlocked = false by default.
-// type: "rank" triggered by rank up, "stat_rank" by stat rank up, "streak", "boss", "quest"
+// ─── EXPANDED ACHIEVEMENTS (55+) ─────────────────────────────────────────────
 const ACHIEVEMENT_CATALOG = [
   // Overall rank-ups
-  {id:"rank_d",    name:"First Step",       desc:"Reach overall Rank D",           type:"rank",      trigger:"D",          buff:{stat:"strength",    pct:1}, icon:"⬆"},
-  {id:"rank_c",    name:"Rising Hunter",    desc:"Reach overall Rank C",           type:"rank",      trigger:"C",          buff:{stat:"endurance",   pct:2}, icon:"🌱"},
-  {id:"rank_b",    name:"Dangerous One",    desc:"Reach overall Rank B",           type:"rank",      trigger:"B",          buff:{stat:"intelligence",pct:2}, icon:"⚔"},
-  {id:"rank_a",    name:"Elite Hunter",     desc:"Reach overall Rank A",           type:"rank",      trigger:"A",          buff:{stat:"discipline",  pct:3}, icon:"🔥"},
-  {id:"rank_s",    name:"Shadow Monarch",   desc:"Reach overall Rank S",           type:"rank",      trigger:"S",          buff:{stat:"mental",      pct:4}, icon:"👑"},
-  {id:"rank_ss",   name:"Transcendent",     desc:"Reach overall Rank SS",          type:"rank",      trigger:"SS",         buff:{stat:"charisma",    pct:4}, icon:"💠"},
-  {id:"rank_sss",  name:"Beyond Human",     desc:"Reach overall Rank SSS",         type:"rank",      trigger:"SSS",        buff:{stat:"creativity",  pct:5}, icon:"🌌"},
-  // Stat rank-ups (one per stat per major rank)
-  {id:"str_b",     name:"Iron Body",        desc:"Reach Strength Rank B",          type:"stat_rank", trigger:"strength:B",  buff:{stat:"strength",   pct:3}, icon:"💪"},
-  {id:"str_s",     name:"Absolute Power",   desc:"Reach Strength Rank S",          type:"stat_rank", trigger:"strength:S",  buff:{stat:"strength",   pct:5}, icon:"⚔"},
-  {id:"end_b",     name:"Tireless",         desc:"Reach Endurance Rank B",         type:"stat_rank", trigger:"endurance:B", buff:{stat:"endurance",  pct:3}, icon:"🏃"},
-  {id:"end_s",     name:"Undying Will",     desc:"Reach Endurance Rank S",         type:"stat_rank", trigger:"endurance:S", buff:{stat:"endurance",  pct:5}, icon:"🔥"},
-  {id:"int_b",     name:"Sharp Mind",       desc:"Reach Intelligence Rank B",      type:"stat_rank", trigger:"intelligence:B",buff:{stat:"intelligence",pct:3},icon:"📚"},
-  {id:"int_s",     name:"Genius Protocol",  desc:"Reach Intelligence Rank S",      type:"stat_rank", trigger:"intelligence:S",buff:{stat:"intelligence",pct:5},icon:"🧠"},
-  {id:"disc_b",    name:"Unbreakable",      desc:"Reach Discipline Rank B",        type:"stat_rank", trigger:"discipline:B",buff:{stat:"discipline",  pct:3}, icon:"🧹"},
-  {id:"disc_s",    name:"Iron Discipline",  desc:"Reach Discipline Rank S",        type:"stat_rank", trigger:"discipline:S",buff:{stat:"discipline",  pct:5}, icon:"🪨"},
-  {id:"men_b",     name:"Still Water",      desc:"Reach Mental Rank B",            type:"stat_rank", trigger:"mental:B",    buff:{stat:"mental",     pct:3}, icon:"🧘"},
-  {id:"men_s",     name:"Void Mind",        desc:"Reach Mental Rank S",            type:"stat_rank", trigger:"mental:S",    buff:{stat:"mental",     pct:5}, icon:"🌀"},
-  {id:"cha_b",     name:"Silver Presence",  desc:"Reach Charisma Rank B",          type:"stat_rank", trigger:"charisma:B",  buff:{stat:"charisma",   pct:3}, icon:"💬"},
-  {id:"cha_s",     name:"Monarch's Aura",   desc:"Reach Charisma Rank S",          type:"stat_rank", trigger:"charisma:S",  buff:{stat:"charisma",   pct:5}, icon:"✨"},
-  {id:"cre_b",     name:"Artisan",          desc:"Reach Creativity Rank B",        type:"stat_rank", trigger:"creativity:B",buff:{stat:"creativity",  pct:3}, icon:"🎨"},
-  {id:"cre_s",     name:"Grand Creator",    desc:"Reach Creativity Rank S",        type:"stat_rank", trigger:"creativity:S",buff:{stat:"creativity",  pct:5}, icon:"🎭"},
-  {id:"rec_b",     name:"Restored",         desc:"Reach Recovery Rank B",          type:"stat_rank", trigger:"recovery:B",  buff:{stat:"recovery",   pct:3}, icon:"🌙"},
-  {id:"rec_s",     name:"Immortal Body",    desc:"Reach Recovery Rank S",          type:"stat_rank", trigger:"recovery:S",  buff:{stat:"recovery",   pct:5}, icon:"💫"},
+  {id:"rank_d",    name:"First Step",        desc:"Reach overall Rank D",          type:"rank",     trigger:"D",             buff:{stat:"strength",    pct:1}, icon:"⬆"},
+  {id:"rank_c",    name:"Rising Hunter",     desc:"Reach overall Rank C",          type:"rank",     trigger:"C",             buff:{stat:"endurance",   pct:2}, icon:"🌱"},
+  {id:"rank_b",    name:"Dangerous One",     desc:"Reach overall Rank B",          type:"rank",     trigger:"B",             buff:{stat:"intelligence",pct:2}, icon:"⚔"},
+  {id:"rank_a",    name:"Elite Hunter",      desc:"Reach overall Rank A",          type:"rank",     trigger:"A",             buff:{stat:"discipline",  pct:3}, icon:"🔥"},
+  {id:"rank_s",    name:"Shadow Monarch",    desc:"Reach overall Rank S",          type:"rank",     trigger:"S",             buff:{stat:"mental",      pct:4}, icon:"👑"},
+  {id:"rank_ss",   name:"Transcendent",      desc:"Reach overall Rank SS",         type:"rank",     trigger:"SS",            buff:{stat:"charisma",    pct:4}, icon:"💠"},
+  {id:"rank_sss",  name:"Beyond Human",      desc:"Reach overall Rank SSS",        type:"rank",     trigger:"SSS",           buff:{stat:"creativity",  pct:5}, icon:"🌌"},
+  {id:"rank_nat",  name:"National Level",    desc:"Reach National Hunter rank",    type:"rank",     trigger:"National",      buff:{stat:"strength",    pct:8}, icon:"🏆"},
+  // Stat rank-ups
+  {id:"str_b",     name:"Iron Body",         desc:"Reach Strength Rank B",         type:"stat_rank",trigger:"strength:B",    buff:{stat:"strength",   pct:3}, icon:"💪"},
+  {id:"str_s",     name:"Absolute Power",    desc:"Reach Strength Rank S",         type:"stat_rank",trigger:"strength:S",    buff:{stat:"strength",   pct:5}, icon:"⚔"},
+  {id:"end_b",     name:"Tireless",          desc:"Reach Endurance Rank B",        type:"stat_rank",trigger:"endurance:B",   buff:{stat:"endurance",  pct:3}, icon:"🏃"},
+  {id:"end_s",     name:"Undying Will",      desc:"Reach Endurance Rank S",        type:"stat_rank",trigger:"endurance:S",   buff:{stat:"endurance",  pct:5}, icon:"🔥"},
+  {id:"int_b",     name:"Sharp Mind",        desc:"Reach Intelligence Rank B",     type:"stat_rank",trigger:"intelligence:B",buff:{stat:"intelligence",pct:3},icon:"📚"},
+  {id:"int_s",     name:"Genius Protocol",   desc:"Reach Intelligence Rank S",     type:"stat_rank",trigger:"intelligence:S",buff:{stat:"intelligence",pct:5},icon:"🧠"},
+  {id:"disc_b",    name:"Unbreakable",       desc:"Reach Discipline Rank B",       type:"stat_rank",trigger:"discipline:B",  buff:{stat:"discipline",  pct:3}, icon:"🧹"},
+  {id:"disc_s",    name:"Iron Discipline",   desc:"Reach Discipline Rank S",       type:"stat_rank",trigger:"discipline:S",  buff:{stat:"discipline",  pct:5}, icon:"🪨"},
+  {id:"men_b",     name:"Still Water",       desc:"Reach Mental Rank B",           type:"stat_rank",trigger:"mental:B",      buff:{stat:"mental",     pct:3}, icon:"🧘"},
+  {id:"men_s",     name:"Void Mind",         desc:"Reach Mental Rank S",           type:"stat_rank",trigger:"mental:S",      buff:{stat:"mental",     pct:5}, icon:"🌀"},
+  {id:"cha_b",     name:"Silver Presence",   desc:"Reach Charisma Rank B",         type:"stat_rank",trigger:"charisma:B",    buff:{stat:"charisma",   pct:3}, icon:"💬"},
+  {id:"cha_s",     name:"Monarch's Aura",    desc:"Reach Charisma Rank S",         type:"stat_rank",trigger:"charisma:S",    buff:{stat:"charisma",   pct:5}, icon:"✨"},
+  {id:"cre_b",     name:"Artisan",           desc:"Reach Creativity Rank B",       type:"stat_rank",trigger:"creativity:B",  buff:{stat:"creativity",  pct:3}, icon:"🎨"},
+  {id:"cre_s",     name:"Grand Creator",     desc:"Reach Creativity Rank S",       type:"stat_rank",trigger:"creativity:S",  buff:{stat:"creativity",  pct:5}, icon:"🎭"},
+  {id:"rec_b",     name:"Restored",          desc:"Reach Recovery Rank B",         type:"stat_rank",trigger:"recovery:B",    buff:{stat:"recovery",   pct:3}, icon:"🌙"},
+  {id:"rec_s",     name:"Immortal Body",     desc:"Reach Recovery Rank S",         type:"stat_rank",trigger:"recovery:S",    buff:{stat:"recovery",   pct:5}, icon:"💫"},
   // Streak achievements
-  {id:"streak_7",  name:"Week Warrior",     desc:"Maintain a 7-day streak",        type:"streak",    trigger:7,             buff:{stat:"discipline",  pct:2}, icon:"🔥"},
-  {id:"streak_30", name:"Iron Streak",      desc:"Maintain a 30-day streak",       type:"streak",    trigger:30,            buff:{stat:"discipline",  pct:4}, icon:"💎"},
-  // Quest milestones
-  {id:"quest_1",   name:"The Awakening",    desc:"Complete your first daily task",  type:"tasks",    trigger:1,             buff:{stat:"strength",    pct:1}, icon:"⚡"},
-  {id:"quest_50",  name:"Veteran Hunter",   desc:"Complete 50 daily tasks",         type:"tasks",    trigger:50,            buff:{stat:"endurance",   pct:2}, icon:"🏆"},
-  {id:"quest_200", name:"Relentless",       desc:"Complete 200 daily tasks",        type:"tasks",    trigger:200,           buff:{stat:"mental",      pct:3}, icon:"💀"},
-  // Boss drops are added separately
+  {id:"streak_3",  name:"Three Day Warrior", desc:"Maintain a 3-day streak",       type:"streak",   trigger:3,               buff:{stat:"discipline",  pct:1}, icon:"🔥"},
+  {id:"streak_7",  name:"Week Warrior",      desc:"Maintain a 7-day streak",       type:"streak",   trigger:7,               buff:{stat:"discipline",  pct:2}, icon:"🔥"},
+  {id:"streak_14", name:"Fortnight Fighter", desc:"Maintain a 14-day streak",      type:"streak",   trigger:14,              buff:{stat:"discipline",  pct:3}, icon:"🔥"},
+  {id:"streak_30", name:"Iron Streak",       desc:"Maintain a 30-day streak",      type:"streak",   trigger:30,              buff:{stat:"discipline",  pct:5}, icon:"💎"},
+  {id:"streak_60", name:"Relentless",        desc:"Maintain a 60-day streak",      type:"streak",   trigger:60,              buff:{stat:"mental",      pct:5}, icon:"💀"},
+  // Quest/task milestones
+  {id:"quest_1",   name:"The Awakening",     desc:"Complete your first daily task", type:"tasks",   trigger:1,               buff:{stat:"strength",    pct:1}, icon:"⚡"},
+  {id:"quest_10",  name:"Getting Started",   desc:"Complete 10 daily tasks",        type:"tasks",   trigger:10,              buff:{stat:"endurance",   pct:1}, icon:"📋"},
+  {id:"quest_50",  name:"Veteran Hunter",    desc:"Complete 50 daily tasks",        type:"tasks",   trigger:50,              buff:{stat:"endurance",   pct:2}, icon:"🏆"},
+  {id:"quest_100", name:"Centurion",         desc:"Complete 100 daily tasks",       type:"tasks",   trigger:100,             buff:{stat:"discipline",  pct:3}, icon:"💯"},
+  {id:"quest_200", name:"Relentless Grind",  desc:"Complete 200 daily tasks",       type:"tasks",   trigger:200,             buff:{stat:"mental",      pct:3}, icon:"💀"},
+  {id:"quest_500", name:"Legend of the Hunt",desc:"Complete 500 daily tasks",       type:"tasks",   trigger:500,             buff:{stat:"strength",    pct:6}, icon:"🌟"},
+  // Boss count milestones
+  {id:"bosses_5",  name:"Dungeon Regular",   desc:"Defeat 5 bosses",               type:"boss_count",trigger:5,             buff:{stat:"strength",    pct:2}, icon:"🗡️"},
+  {id:"bosses_15", name:"Dungeon Veteran",   desc:"Defeat 15 bosses",              type:"boss_count",trigger:15,            buff:{stat:"endurance",   pct:3}, icon:"⚔️"},
+  {id:"bosses_30", name:"Boss Slayer",       desc:"Defeat 30 bosses",              type:"boss_count",trigger:30,            buff:{stat:"strength",    pct:4}, icon:"🔱"},
+  {id:"bosses_50", name:"Apex Predator",     desc:"Defeat all 50 bosses",          type:"boss_count",trigger:50,            buff:{stat:"strength",    pct:8}, icon:"💎"},
+  // Tier clear achievements
+  {id:"all_common",   name:"Common Cleared",   desc:"Defeat all common bosses",    type:"tier_clear",trigger:"common",      buff:{stat:"endurance",   pct:2}, icon:"🏅"},
+  {id:"all_uncommon", name:"Uncommon Cleared", desc:"Defeat all uncommon bosses",  type:"tier_clear",trigger:"uncommon",    buff:{stat:"strength",    pct:3}, icon:"🏅"},
+  {id:"all_rare",     name:"Rare Vanquished",  desc:"Defeat all rare bosses",      type:"tier_clear",trigger:"rare",        buff:{stat:"intelligence",pct:4}, icon:"🏅"},
+  {id:"all_epic",     name:"Epic Erased",      desc:"Defeat all epic bosses",      type:"tier_clear",trigger:"epic",        buff:{stat:"mental",      pct:5}, icon:"🏅"},
+  {id:"all_legendary",name:"Legend Complete",  desc:"Defeat all legendary bosses", type:"tier_clear",trigger:"legendary",   buff:{stat:"discipline",  pct:6}, icon:"🏅"},
+  {id:"all_mythic",   name:"Mythic Cleared",   desc:"Defeat all mythic bosses",    type:"tier_clear",trigger:"mythic",      buff:{stat:"strength",    pct:10},icon:"💠"},
 ];
 
-// ─── TITLES CATALOG ───────────────────────────────────────────────────────────
+// ─── EXPANDED TITLES (40+) ────────────────────────────────────────────────────
 const ALL_TITLES = [
-  "Goblin Slayer","Stone Breaker","Shadow Reader","Phantom Killer","Sovereign's Heir","Void Walker",
-  "The Awakened","Shadow Hunter","Iron Will","Dungeon Walker","The Unbroken",
+  // Boss drops
+  "Goblin Slayer","Bone Breaker","Rat Exterminator","Orc Slayer","Stone Breaker",
+  "Fox Outwitter","Frost Breaker","Flame Tamer","Night Hunter","Curse Breaker",
+  "Shadow Reader","Colossus Feller","Regret Slayer","Eye Slayer","Dual Slayer",
+  "Drake Rider","Life Ascendant","Self-Conqueror","Loremaster","Phantom Killer",
+  "Hydra Slayer","Demon Conquered","Leviathan Lord","Unburdened","Archon's Rival",
+  "Dusk Breaker","Sovereign's Heir","Eternally Watched","Death-Defier","King's Usurper",
+  "Void Walker","Shadow Monarch",
+  // Achievement/milestone titles
+  "The Awakened","Week Warrior","Iron Streak","Veteran Hunter","The Centurion",
+  "Dungeon Regular","Boss Slayer","The Relentless","Apex Predator",
 ];
 
-// ─── PIXEL SPRITES (SVG) ──────────────────────────────────────────────────────
-function BossSprite({type, color, size=80}){
-  const s = size;
-  const sprites = {
-    goblin:(
-      <svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
-        <rect x="5" y="1" width="6" height="5" fill="#5a8a3a"/>
-        <rect x="4" y="2" width="1" height="3" fill="#5a8a3a"/>
-        <rect x="11" y="2" width="1" height="3" fill="#5a8a3a"/>
-        <rect x="6" y="3" width="1" height="1" fill="#ffcc00"/>
-        <rect x="9" y="3" width="1" height="1" fill="#ffcc00"/>
-        <rect x="6" y="5" width="4" height="1" fill="#3a6a2a"/>
-        <rect x="4" y="6" width="8" height="5" fill="#5a8a3a"/>
-        <rect x="5" y="7" width="2" height="1" fill="#3a6a2a"/>
-        <rect x="9" y="7" width="2" height="1" fill="#3a6a2a"/>
-        <rect x="3" y="6" width="2" height="4" fill="#5a8a3a"/>
-        <rect x="11" y="6" width="2" height="4" fill="#5a8a3a"/>
-        <rect x="4" y="11" width="3" height="4" fill="#5a8a3a"/>
-        <rect x="9" y="11" width="3" height="4" fill="#5a8a3a"/>
-        <rect x="2" y="5" width="1" height="1" fill="#ffcc00"/>
-        <rect x="13" y="5" width="1" height="1" fill="#ffcc00"/>
-      </svg>
-    ),
-    golem:(
-      <svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
-        <rect x="4" y="1" width="8" height="7" fill="#7a7a8a"/>
-        <rect x="5" y="3" width="2" height="2" fill="#4a9aff"/>
-        <rect x="9" y="3" width="2" height="2" fill="#4a9aff"/>
-        <rect x="6" y="6" width="4" height="1" fill="#5a5a6a"/>
-        <rect x="2" y="4" width="3" height="5" fill="#7a7a8a"/>
-        <rect x="11" y="4" width="3" height="5" fill="#7a7a8a"/>
-        <rect x="4" y="8" width="8" height="6" fill="#7a7a8a"/>
-        <rect x="4" y="14" width="3" height="2" fill="#6a6a7a"/>
-        <rect x="9" y="14" width="3" height="2" fill="#6a6a7a"/>
-        <rect x="5" y="9" width="2" height="2" fill="#5a5a6a"/>
-        <rect x="9" y="9" width="2" height="2" fill="#5a5a6a"/>
-      </svg>
-    ),
-    mage:(
-      <svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
-        <rect x="6" y="0" width="4" height="1" fill="#4a2a7a"/>
-        <rect x="5" y="1" width="6" height="4" fill="#2a1a5a"/>
-        <rect x="4" y="2" width="1" height="2" fill="#2a1a5a"/>
-        <rect x="11" y="2" width="1" height="2" fill="#2a1a5a"/>
-        <rect x="6" y="3" width="1" height="1" fill="#cc44ff"/>
-        <rect x="9" y="3" width="1" height="1" fill="#cc44ff"/>
-        <rect x="6" y="5" width="4" height="1" fill="#1a0a3a"/>
-        <rect x="4" y="5" width="8" height="6" fill="#3a1a6a"/>
-        <rect x="3" y="5" width="2" height="5" fill="#3a1a6a"/>
-        <rect x="11" y="5" width="2" height="5" fill="#3a1a6a"/>
-        <rect x="2" y="9" width="2" height="1" fill="#cc44ff"/>
-        <rect x="12" y="9" width="2" height="1" fill="#cc44ff"/>
-        <rect x="5" y="11" width="3" height="5" fill="#3a1a6a"/>
-        <rect x="8" y="11" width="3" height="5" fill="#3a1a6a"/>
-        <rect x="7" y="6" width="2" height="2" fill="#cc44ff"/>
-      </svg>
-    ),
-    warlord:(
-      <svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
-        <rect x="5" y="0" width="6" height="1" fill="#8a6a2a"/>
-        <rect x="4" y="1" width="8" height="6" fill="#2a2a2a"/>
-        <rect x="3" y="2" width="2" height="4" fill="#2a2a2a"/>
-        <rect x="11" y="2" width="2" height="4" fill="#2a2a2a"/>
-        <rect x="6" y="3" width="1" height="1" fill="#ff4444"/>
-        <rect x="9" y="3" width="1" height="1" fill="#ff4444"/>
-        <rect x="6" y="5" width="4" height="1" fill="#1a1a1a"/>
-        <rect x="3" y="7" width="10" height="7" fill="#2a2a2a"/>
-        <rect x="1" y="6" width="3" height="6" fill="#2a2a2a"/>
-        <rect x="12" y="6" width="3" height="6" fill="#2a2a2a"/>
-        <rect x="0" y="11" width="2" height="1" fill="#8a6a2a"/>
-        <rect x="14" y="11" width="2" height="1" fill="#8a6a2a"/>
-        <rect x="4" y="14" width="3" height="2" fill="#2a2a2a"/>
-        <rect x="9" y="14" width="3" height="2" fill="#2a2a2a"/>
-        <rect x="5" y="8" width="6" height="1" fill="#8a6a2a"/>
-      </svg>
-    ),
-    emperor:(
-      <svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
-        <rect x="6" y="0" width="4" height="2" fill="#ffcc00"/>
-        <rect x="5" y="1" width="6" height="5" fill="#cc9900"/>
-        <rect x="4" y="2" width="2" height="3" fill="#cc9900"/>
-        <rect x="10" y="2" width="2" height="3" fill="#cc9900"/>
-        <rect x="6" y="3" width="1" height="1" fill="#ffffff"/>
-        <rect x="9" y="3" width="1" height="1" fill="#ffffff"/>
-        <rect x="6" y="5" width="4" height="1" fill="#aa7700"/>
-        <rect x="3" y="6" width="10" height="7" fill="#aa4400"/>
-        <rect x="2" y="6" width="2" height="6" fill="#aa4400"/>
-        <rect x="12" y="6" width="2" height="6" fill="#aa4400"/>
-        <rect x="5" y="7" width="6" height="3" fill="#cc6600"/>
-        <rect x="4" y="13" width="3" height="3" fill="#aa4400"/>
-        <rect x="9" y="13" width="3" height="3" fill="#aa4400"/>
-        <rect x="1" y="11" width="2" height="1" fill="#ffcc00"/>
-        <rect x="13" y="11" width="2" height="1" fill="#ffcc00"/>
-      </svg>
-    ),
-    deity:(
-      <svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
-        <rect x="7" y="0" width="2" height="1" fill="#ff44aa"/>
-        <rect x="6" y="1" width="4" height="5" fill="#1a001a"/>
-        <rect x="5" y="2" width="2" height="3" fill="#1a001a"/>
-        <rect x="9" y="2" width="2" height="3" fill="#1a001a"/>
-        <rect x="6" y="3" width="1" height="1" fill="#ff44aa"/>
-        <rect x="9" y="3" width="1" height="1" fill="#ff44aa"/>
-        <rect x="6" y="5" width="4" height="1" fill="#2a002a"/>
-        <rect x="3" y="6" width="10" height="7" fill="#1a001a"/>
-        <rect x="1" y="5" width="3" height="7" fill="#1a001a"/>
-        <rect x="12" y="5" width="3" height="7" fill="#1a001a"/>
-        <rect x="0" y="4" width="2" height="2" fill="#ff44aa"/>
-        <rect x="14" y="4" width="2" height="2" fill="#ff44aa"/>
-        <rect x="5" y="7" width="2" height="2" fill="#ff44aa"/>
-        <rect x="9" y="7" width="2" height="2" fill="#ff44aa"/>
-        <rect x="4" y="13" width="3" height="3" fill="#1a001a"/>
-        <rect x="9" y="13" width="3" height="3" fill="#1a001a"/>
-        <rect x="7" y="6" width="2" height="5" fill="#ff44aa"/>
-      </svg>
-    ),
+// Title bonus map — what each title actually does
+const TITLE_BONUSES = {
+  "Shadow Monarch":  "+50 XP per boss, +25 XP per task",
+  "Void Walker":     "+30% XP all sources",
+  "Death-Defier":    "+25 XP on all boss kills",
+  "Sovereign's Heir":"+20% XP all sources",
+  "Eternally Watched":"+5 XP per day login bonus",
+  "Unburdened":      "+10% XP for discipline tasks",
+  "Dual Slayer":     "+5% XP multi-stat tasks",
+  "Self-Conqueror":  "+15 XP self-improvement tasks",
+  "Loremaster":      "+10 XP reading/learning tasks",
+  "Night Hunter":    "+10 XP evening tasks",
+  "Frost Breaker":   "+5 XP cold-related tasks",
+  "Iron Streak":     "+10% XP all sources (streak bonus)",
+  "The Centurion":   "+10 XP per task",
+  "Boss Slayer":     "+5% XP all boss rewards",
+  "Apex Predator":   "+15% XP all sources",
+};
+
+// ─── BOSS TIER WEIGHTS ───────────────────────────────────────────────────────
+const BOSS_TIER_WEIGHTS=[
+  {tier:"common",weight:40},{tier:"uncommon",weight:25},{tier:"rare",weight:18},
+  {tier:"epic",weight:10},{tier:"legendary",weight:5},{tier:"mythic",weight:2},
+];
+
+// ─── PIXEL SPRITES (SVG) ─────────────────────────────────────────────────────
+function BossSprite({type,size=80}){
+  const s=size;
+  const sprites={
+    goblin:(<svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
+      <rect x="5" y="1" width="6" height="5" fill="#5a8a3a"/>
+      <rect x="4" y="2" width="1" height="3" fill="#5a8a3a"/>
+      <rect x="11" y="2" width="1" height="3" fill="#5a8a3a"/>
+      <rect x="6" y="3" width="1" height="1" fill="#ffcc00"/>
+      <rect x="9" y="3" width="1" height="1" fill="#ffcc00"/>
+      <rect x="6" y="5" width="4" height="1" fill="#3a6a2a"/>
+      <rect x="4" y="6" width="8" height="5" fill="#5a8a3a"/>
+      <rect x="3" y="6" width="2" height="4" fill="#5a8a3a"/>
+      <rect x="11" y="6" width="2" height="4" fill="#5a8a3a"/>
+      <rect x="4" y="11" width="3" height="4" fill="#5a8a3a"/>
+      <rect x="9" y="11" width="3" height="4" fill="#5a8a3a"/>
+    </svg>),
+    golem:(<svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
+      <rect x="4" y="1" width="8" height="7" fill="#7a7a8a"/>
+      <rect x="5" y="3" width="2" height="2" fill="#4a9aff"/>
+      <rect x="9" y="3" width="2" height="2" fill="#4a9aff"/>
+      <rect x="6" y="6" width="4" height="1" fill="#5a5a6a"/>
+      <rect x="2" y="4" width="3" height="5" fill="#7a7a8a"/>
+      <rect x="11" y="4" width="3" height="5" fill="#7a7a8a"/>
+      <rect x="4" y="8" width="8" height="6" fill="#7a7a8a"/>
+      <rect x="4" y="14" width="3" height="2" fill="#6a6a7a"/>
+      <rect x="9" y="14" width="3" height="2" fill="#6a6a7a"/>
+    </svg>),
+    mage:(<svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
+      <rect x="5" y="1" width="6" height="4" fill="#2a1a5a"/>
+      <rect x="4" y="2" width="1" height="2" fill="#2a1a5a"/>
+      <rect x="11" y="2" width="1" height="2" fill="#2a1a5a"/>
+      <rect x="6" y="3" width="1" height="1" fill="#cc44ff"/>
+      <rect x="9" y="3" width="1" height="1" fill="#cc44ff"/>
+      <rect x="4" y="5" width="8" height="6" fill="#3a1a6a"/>
+      <rect x="3" y="5" width="2" height="5" fill="#3a1a6a"/>
+      <rect x="11" y="5" width="2" height="5" fill="#3a1a6a"/>
+      <rect x="2" y="9" width="2" height="1" fill="#cc44ff"/>
+      <rect x="12" y="9" width="2" height="1" fill="#cc44ff"/>
+      <rect x="5" y="11" width="3" height="5" fill="#3a1a6a"/>
+      <rect x="8" y="11" width="3" height="5" fill="#3a1a6a"/>
+      <rect x="7" y="6" width="2" height="2" fill="#cc44ff"/>
+    </svg>),
+    warlord:(<svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
+      <rect x="5" y="0" width="6" height="1" fill="#8a6a2a"/>
+      <rect x="4" y="1" width="8" height="6" fill="#2a2a2a"/>
+      <rect x="3" y="2" width="2" height="4" fill="#2a2a2a"/>
+      <rect x="11" y="2" width="2" height="4" fill="#2a2a2a"/>
+      <rect x="6" y="3" width="1" height="1" fill="#ff4444"/>
+      <rect x="9" y="3" width="1" height="1" fill="#ff4444"/>
+      <rect x="3" y="7" width="10" height="7" fill="#2a2a2a"/>
+      <rect x="1" y="6" width="3" height="6" fill="#2a2a2a"/>
+      <rect x="12" y="6" width="3" height="6" fill="#2a2a2a"/>
+      <rect x="0" y="11" width="2" height="1" fill="#8a6a2a"/>
+      <rect x="14" y="11" width="2" height="1" fill="#8a6a2a"/>
+      <rect x="4" y="14" width="3" height="2" fill="#2a2a2a"/>
+      <rect x="9" y="14" width="3" height="2" fill="#2a2a2a"/>
+      <rect x="5" y="8" width="6" height="1" fill="#8a6a2a"/>
+    </svg>),
+    emperor:(<svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
+      <rect x="6" y="0" width="4" height="2" fill="#ffcc00"/>
+      <rect x="5" y="1" width="6" height="5" fill="#cc9900"/>
+      <rect x="4" y="2" width="2" height="3" fill="#cc9900"/>
+      <rect x="10" y="2" width="2" height="3" fill="#cc9900"/>
+      <rect x="6" y="3" width="1" height="1" fill="#ffffff"/>
+      <rect x="9" y="3" width="1" height="1" fill="#ffffff"/>
+      <rect x="3" y="6" width="10" height="7" fill="#aa4400"/>
+      <rect x="2" y="6" width="2" height="6" fill="#aa4400"/>
+      <rect x="12" y="6" width="2" height="6" fill="#aa4400"/>
+      <rect x="5" y="7" width="6" height="3" fill="#cc6600"/>
+      <rect x="4" y="13" width="3" height="3" fill="#aa4400"/>
+      <rect x="9" y="13" width="3" height="3" fill="#aa4400"/>
+      <rect x="1" y="11" width="2" height="1" fill="#ffcc00"/>
+      <rect x="13" y="11" width="2" height="1" fill="#ffcc00"/>
+    </svg>),
+    deity:(<svg width={s} height={s} viewBox="0 0 16 16" style={{imageRendering:"pixelated"}}>
+      <rect x="7" y="0" width="2" height="1" fill="#ff44aa"/>
+      <rect x="6" y="1" width="4" height="5" fill="#1a001a"/>
+      <rect x="5" y="2" width="2" height="3" fill="#1a001a"/>
+      <rect x="9" y="2" width="2" height="3" fill="#1a001a"/>
+      <rect x="6" y="3" width="1" height="1" fill="#ff44aa"/>
+      <rect x="9" y="3" width="1" height="1" fill="#ff44aa"/>
+      <rect x="3" y="6" width="10" height="7" fill="#1a001a"/>
+      <rect x="1" y="5" width="3" height="7" fill="#1a001a"/>
+      <rect x="12" y="5" width="3" height="7" fill="#1a001a"/>
+      <rect x="0" y="4" width="2" height="2" fill="#ff44aa"/>
+      <rect x="14" y="4" width="2" height="2" fill="#ff44aa"/>
+      <rect x="5" y="7" width="2" height="2" fill="#ff44aa"/>
+      <rect x="9" y="7" width="2" height="2" fill="#ff44aa"/>
+      <rect x="4" y="13" width="3" height="3" fill="#1a001a"/>
+      <rect x="9" y="13" width="3" height="3" fill="#1a001a"/>
+      <rect x="7" y="6" width="2" height="5" fill="#ff44aa"/>
+    </svg>),
   };
   return sprites[type]||sprites.goblin;
 }
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 function getRank(xp){for(let i=RANK_THRESHOLDS.length-1;i>=0;i--){if(xp>=RANK_THRESHOLDS[i])return RANKS[i];}return"E";}
 function getXPInfo(xp){const rank=getRank(xp),idx=RANKS.indexOf(rank);if(idx>=RANKS.length-1)return{pct:100,nextRank:"MAX"};const cur=RANK_THRESHOLDS[idx],nxt=RANK_THRESHOLDS[idx+1];return{pct:Math.round(((xp-cur)/(nxt-cur))*100),nextRank:RANKS[idx+1]};}
 function getStatRankIdx(xp){for(let i=STAT_RANK_XP.length-1;i>=0;i--){if((xp||0)>=STAT_RANK_XP[i])return i;}return 0;}
@@ -375,18 +524,15 @@ function getStatNextRank(xp){const idx=getStatRankIdx(xp);return idx>=RANKS.leng
 function hexToRgb(hex){try{return`${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`;}catch{return"100,100,200";}}
 function todayStr(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function getMidnightMs(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,0,0).getTime()-n.getTime();}
-// Compute active XP buff multiplier for a stat from unlocked achievements
-function getBuffMult(achievements, stat){
+function getBuffMult(achievements,stat){
   let total=0;
   achievements.forEach(id=>{
     const a=ACHIEVEMENT_CATALOG.find(a=>a.id===id);
-    if(a&&a.buff&&a.buff.stat===stat) total+=a.buff.pct;
-    // Also check boss achievement drops
-    BOSSES.forEach(b=>{ if(b.achievementDrop&&b.achievementDrop.id===id&&b.achievementDrop.buff&&b.achievementDrop.buff.stat===stat) total+=b.achievementDrop.buff.pct; });
+    if(a&&a.buff&&a.buff.stat===stat)total+=a.buff.pct;
+    BOSSES.forEach(b=>{if(b.achDrop&&b.achDrop.id===id&&b.achDrop.buff&&b.achDrop.buff.stat===stat)total+=b.achDrop.buff.pct;});
   });
   return 1+(total/100);
 }
-
 function pickCards(n=3){
   const by={};CARDS.forEach(c=>{if(!by[c.tier])by[c.tier]=[];by[c.tier].push(c);});
   Object.keys(by).forEach(t=>by[t].sort(()=>Math.random()-0.5));
@@ -396,16 +542,14 @@ function pickCards(n=3){
   while(result.length<n){const all=CARDS.filter(c=>!result.find(r=>r.id===c.id)).sort(()=>Math.random()-0.5);if(!all.length)break;result.push(all[0]);}
   return result.slice(0,n);
 }
-
 function getRecommendedStart(stat,target,unit){
   const t=parseFloat(target)||0;if(!t)return null;
   const u=(unit||"").toLowerCase();
   if(stat!=="strength")return null;
-  if(u.includes("kg")||u.includes("lb")){const rec=Math.max(1,Math.round(t*0.6));return{value:rec,reason:"Starting at ~60% of your goal helps ensure a safe working baseline for weighted lifts."};}
+  if(u.includes("kg")||u.includes("lb")){const rec=Math.max(1,Math.round(t*0.6));return{value:rec,reason:"Starting at ~60% of your goal helps ensure a safe working baseline."};}
   const rec=Math.max(1,Math.round(t*0.3));
-  return{value:rec,reason:"Starting at ~30% of your goal helps ensure safe progression for bodyweight reps."};
+  return{value:rec,reason:"Starting at ~30% helps ensure safe bodyweight progression."};
 }
-
 function getDailyValue(sg,dayIndex,totalDays,penaltyFactor=1.0){
   const mode=STATS[sg.stat]?.mode||"incremental";
   if(mode==="flat")return sg.target;
@@ -420,192 +564,58 @@ function getDailyValue(sg,dayIndex,totalDays,penaltyFactor=1.0){
   if(penaltyFactor>1)val=Math.min(target,Math.round(val*penaltyFactor*10)/10);
   return Math.max(start,Math.min(target,val));
 }
-
 function calcTaskXP(task,achievements=[]){
   const base=50+task.value*1.5+(task.dayIndex||0)*2;
   const buffMult=getBuffMult(achievements,task.stat);
   return Math.round(base*(task.xpMult||1)*buffMult);
 }
-
-function sendNotif(title,body){if(typeof Notification==="undefined"||Notification.permission!=="granted")return;try{new Notification(title,{body,icon:"/icon-192.png",tag:"sl",renotify:true})}catch(e){navigator.serviceWorker?.ready.then(r=>r.active?.postMessage({type:"SHOW_NOTIFICATION",title,body})).catch(()=>{})}}
 function playBeep(f,d,t){try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=t||"square";o.frequency.value=f||440;g.gain.setValueAtTime(0.18,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+(d||0.15));o.start();o.stop(c.currentTime+(d||0.15));}catch(_){}}
 function playSfx(name){
-  if(name==="success"){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>playBeep(f,0.18),i*90))}
-  else if(name==="fail"){[300,200].forEach((f,i)=>setTimeout(()=>playBeep(f,0.28,"sawtooth"),i*130))}
-  else if(name==="epic"){[300,400,500,600,800,1000].forEach((f,i)=>setTimeout(()=>playBeep(f,0.2,"triangle"),i*65))}
-  else if(name==="boss"){[200,150,250,180,300].forEach((f,i)=>setTimeout(()=>playBeep(f,0.3,"sawtooth"),i*80))}
-  else if(name==="levelup"){[440,554,659,880,1047,1318].forEach((f,i)=>setTimeout(()=>playBeep(f,0.25,"triangle"),i*70))}
-  else if(name==="title"){[523,784,1047,1568].forEach((f,i)=>setTimeout(()=>playBeep(f,0.22),i*110))}
-  else if(name==="click"){playBeep(880,0.05)}
+  if(name==="success"){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>playBeep(f,0.18),i*90));}
+  else if(name==="fail"){[300,200].forEach((f,i)=>setTimeout(()=>playBeep(f,0.28,"sawtooth"),i*130));}
+  else if(name==="epic"){[300,400,500,600,800,1000].forEach((f,i)=>setTimeout(()=>playBeep(f,0.2,"triangle"),i*65));}
+  else if(name==="boss"){[200,150,250,180,300].forEach((f,i)=>setTimeout(()=>playBeep(f,0.3,"sawtooth"),i*80));}
+  else if(name==="levelup"){[440,554,659,880,1047,1318].forEach((f,i)=>setTimeout(()=>playBeep(f,0.25,"triangle"),i*70));}
+  else if(name==="title"){[523,784,1047,1568].forEach((f,i)=>setTimeout(()=>playBeep(f,0.22),i*110));}
+  else if(name==="click"){playBeep(880,0.05);}
 }
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
 
-// ── Firebase + Auth + FCM ─────────────────────────────────────────────────────
-const _FB_CONFIG = {
-  apiKey:            "AIzaSyAptUL8WwEN2bu6KzzqpTpLDiAfO99L3g4",
-  authDomain:        "solo-leveling-tracker-app-nine.vercel.app",
-  projectId:         "solo-leveling-tracker-26bf0",
-  storageBucket:     "solo-leveling-tracker-26bf0.firebasestorage.app",
-  messagingSenderId: "313976364226",
-  appId:             "1:313976364226:web:c0abf1540cf8a8a641ef5b",
+// ── Firebase / Auth / Firestore ───────────────────────────────────────────────
+const _FB_CONFIG={
+  apiKey:"AIzaSyAptUL8WwEN2bu6KzzqpTpLDiAfO99L3g4",
+  authDomain:"solo-leveling-tracker-app-nine.vercel.app",
+  projectId:"solo-leveling-tracker-26bf0",
+  storageBucket:"solo-leveling-tracker-26bf0.firebasestorage.app",
+  messagingSenderId:"313976364226",
+  appId:"1:313976364226:web:c0abf1540cf8a8a641ef5b",
 };
-const _VAPID_KEY = "BEk-eXX3ldT0Nr7obd6jbWgxF-sVRPjlMdbV66Krn6bU3KRhuzalRyVMqqZftFxbYvqTVUpUtVuhs-7RO4aAsqw";
-const _FS_URL = `https://firestore.googleapis.com/v1/projects/solo-leveling-tracker-26bf0/databases/(default)/documents/users`;
-
+const _FS_URL=`https://firestore.googleapis.com/v1/projects/solo-leveling-tracker-26bf0/databases/(default)/documents/users`;
 firebase.initializeApp(_FB_CONFIG);
-const _fcm = firebase.messaging();
-const _auth = firebase.auth();
+const _auth=firebase.auth();
+let _currentUid=null;
+function _getUserId(){if(_currentUid)return _currentUid;let id=localStorage.getItem("sl_user_id");if(!id){id="user_"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("sl_user_id",id);}return id;}
+function _generateHunterId(){const words=["SHADOW","HUNTER","BLADE","VOID","STORM","IRON","DARK","EMBER","FROST","RUNE","SIEGE","VENOM","CRYSTAL","GHOST","TITAN"];return words[Math.floor(Math.random()*words.length)]+"-"+String(Math.floor(1000+Math.random()*9000));}
+async function signInWithHunterId(hunterId){const clean=hunterId.trim().toUpperCase();if(!clean)throw new Error("Enter your Hunter ID");const res=await fetch(_FS_URL+"/"+clean);if(res.ok){const data=await res.json();if(data.fields){_currentUid=clean;localStorage.setItem("sl_user_id",clean);return{isNew:false};}}throw new Error("Hunter ID not found.");}
+async function createNewHunter(){const hunterId=_generateHunterId();_currentUid=hunterId;localStorage.setItem("sl_user_id",hunterId);return hunterId;}
+async function signOut(){_currentUid=null;localStorage.removeItem("sl_user_id");localStorage.removeItem("sl_v8");}
+async function _saveToFirestore(fields){try{const uid=_getUserId();await fetch(`${_FS_URL}/${uid}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,typeof v==="boolean"?{booleanValue:v}:{stringValue:String(v??"")}]))})});}catch(_){}}
+async function backupGameState(){try{const uid=_getUserId();const raw=localStorage.getItem("sl_v8");if(!raw)return;await fetch(`${_FS_URL}/${uid}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:{gameBackup:{stringValue:raw}}})});}catch(_){}}
+async function restoreGameStateFromUid(uid){try{const res=await fetch(`${_FS_URL}/${uid}`);if(!res.ok)return false;const doc=await res.json();const backup=doc.fields?.gameBackup?.stringValue;if(!backup)return false;localStorage.setItem("sl_v8",backup);localStorage.setItem("sl_user_id",uid);return true;}catch(_){return false;}}
 
-// ── Auth state — the single source of truth for user identity ─────────────────
-let _currentUid = null;
+// ─── INIT STATE ───────────────────────────────────────────────────────────────
+const INIT={
+  hunter:{name:"Hunter",xp:0,totalXP:0,streak:0,daysMissed:0,tasksCompleted:0},
+  statXP:{strength:0,endurance:0,intelligence:0,discipline:0,mental:0,charisma:0,creativity:0,recovery:0},
+  quests:[],dailyTasks:[],log:[],lastResetDate:"",
+  achievements:[],titles:[],equippedTitle:null,
+  activeBoss:null,nextBossSpawnTime:0,
+  bossesDefeated:[],
+};
 
-function _getUserId(){
-  if(_currentUid) return _currentUid;
-  let id = localStorage.getItem("sl_user_id");
-  if(!id){id="user_"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("sl_user_id",id);}
-  return id;
-}
-
-function _generateHunterId(){
-  const words=["SHADOW","HUNTER","BLADE","VOID","STORM","IRON","DARK","EMBER","FROST","RUNE","SIEGE","VENOM","CRYSTAL","GHOST","TITAN"];
-  const word=words[Math.floor(Math.random()*words.length)];
-  const num=String(Math.floor(1000+Math.random()*9000));
-  return word+"-"+num;
-}
-
-async function signInWithHunterId(hunterId){
-  const clean=hunterId.trim().toUpperCase();
-  if(!clean) throw new Error("Enter your Hunter ID");
-  const res=await fetch(_FS_URL+"/"+clean);
-  if(res.ok){
-    const data=await res.json();
-    if(data.fields){ _currentUid=clean; localStorage.setItem("sl_user_id",clean); return {isNew:false}; }
-  }
-  throw new Error("Hunter ID not found.");
-}
-
-async function createNewHunter(){
-  const hunterId=_generateHunterId();
-  _currentUid=hunterId;
-  localStorage.setItem("sl_user_id",hunterId);
-  return hunterId;
-}
-
-async function signOut(){
-  _currentUid=null;
-  localStorage.removeItem("sl_user_id");
-  localStorage.removeItem("sl_v7");
-}
-
-async function _saveToFirestore(fields){
-  try{
-    const uid=_getUserId();
-    await fetch(`${_FS_URL}/${uid}`,{
-      method:"PATCH",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,typeof v==="boolean"?{booleanValue:v}:{stringValue:String(v??"")}]))}),
-    });
-  }catch(_){}
-}
-
-async function backupGameState(){
-  try{
-    const uid=_getUserId();
-    const raw=localStorage.getItem("sl_v7");
-    if(!raw)return;
-    await fetch(`${_FS_URL}/${uid}`,{
-      method:"PATCH",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({fields:{gameBackup:{stringValue:raw}}}),
-    });
-  }catch(_){}
-}
-
-async function restoreGameStateFromUid(uid){
-  try{
-    const res=await fetch(`${_FS_URL}/${uid}`);
-    if(!res.ok)return false;
-    const doc=await res.json();
-    const backup=doc.fields?.gameBackup?.stringValue;
-    if(!backup)return false;
-    localStorage.setItem("sl_v7",backup);
-    // Also persist the uid so offline fallback works
-    localStorage.setItem("sl_user_id",uid);
-    console.log("[SL] Game state restored from Firestore for uid:",uid);
-    return true;
-  }catch(_){return false;}
-}
-
-async function syncBossStateToFirestore(activeBoss){
-  if(activeBoss){
-    await _saveToFirestore({
-      bossId:        activeBoss.bossId||"",
-      bossStartTime: String(activeBoss.startTime||0),
-      bossFailed:    activeBoss.failed||false,
-      bossWon:       activeBoss.won||false,
-    });
-  } else {
-    await _saveToFirestore({bossId:"",bossStartTime:"0",bossFailed:false,bossWon:false});
-  }
-}
-
-async function _registerFCM(){
-  try{
-    if(!("serviceWorker"in navigator))return;
-    if(Notification.permission!=="granted")return;
-
-    // Register the Firebase messaging SW
-    const swReg=await navigator.serviceWorker.register("/firebase-messaging-sw.js",{scope:"/"});
-
-    // Wait until the SW is fully active — critical for iOS and Android
-    await new Promise((resolve)=>{
-      if(swReg.active){resolve();return;}
-      const sw=swReg.installing||swReg.waiting;
-      if(!sw){resolve();return;}
-      sw.addEventListener("statechange",function onState(){
-        if(sw.state==="activated"){sw.removeEventListener("statechange",onState);resolve();}
-      });
-      // Fallback timeout so we never hang
-      setTimeout(resolve,5000);
-    });
-
-    const token=await _fcm.getToken({vapidKey:_VAPID_KEY,serviceWorkerRegistration:swReg});
-    if(!token){console.warn("[SL] FCM: no token returned");return;}
-
-    let extra={};
-    try{
-      const s=JSON.parse(localStorage.getItem("sl_v7")||"{}");
-      if(s.activeBoss){extra={bossId:s.activeBoss.bossId||"",bossStartTime:String(s.activeBoss.startTime||0),bossFailed:s.activeBoss.failed||false,bossWon:s.activeBoss.won||false};}
-    }catch(_){}
-    await _saveToFirestore({fcmToken:token,...extra});
-    console.log("[SL] FCM registered, token:",token.slice(0,20)+"...");
-  }catch(e){console.warn("[SL] FCM setup failed:",e);}
-}
-
-// Handle foreground messages (app is open)
-_fcm.onMessage((payload)=>{
-  const{title,body}=payload.notification||{};
-  if(title&&body)sendNotif(title,body);
-});
-
-if("serviceWorker"in navigator){
-  // Wait for page load + uid, then register
-  window.addEventListener("load",()=>{
-    const tryRegister=()=>{
-      if(!_currentUid)return;
-      // Only register if permission already granted (prompt is handled by the in-app modal)
-      if(Notification.permission==="granted") _registerFCM();
-    };
-    setTimeout(()=>{
-      tryRegister();
-      if(!_currentUid){
-        const poll=setInterval(()=>{if(_currentUid){clearInterval(poll);tryRegister();}},500);
-        setTimeout(()=>clearInterval(poll),15000);
-      }
-    },1500);
-  });
-}
-
+function scheduleNextBossMs(){return Date.now()+(1200000+Math.floor(Math.random()*9600000));}
+function pickRandomBossTier(){const roll=Math.random()*100;let acc=0;for(const t of BOSS_TIER_WEIGHTS){acc+=t.weight;if(roll<acc)return t.tier;}return"common";}
+function getBossDamage(boss,taskIndex){const n=boss.tasks.length;const base=Math.floor(100/n);return taskIndex===n-1?100-(base*(n-1)):base;}
 
 function genTasks(quest,dayIndex,penaltyStats=[]){
   return quest.subGoals.map(sg=>{
@@ -616,11 +626,11 @@ function genTasks(quest,dayIndex,penaltyStats=[]){
   });
 }
 
-// Check and return newly unlocked achievement IDs
 function checkAchievements(prev,newState){
   const already=new Set(newState.achievements||[]);
   const newUnlocks=[];
-  const totalTasksDone=(newState.log||[]).filter(l=>l.text.startsWith("✓")).length;
+  const totalTasksDone=(newState.log||[]).filter(l=>l.text?.startsWith("✓")).length;
+  const bossesDefeated=(newState.bossesDefeated||[]);
   ACHIEVEMENT_CATALOG.forEach(a=>{
     if(already.has(a.id))return;
     let unlock=false;
@@ -628,55 +638,25 @@ function checkAchievements(prev,newState){
     if(a.type==="stat_rank"){const[st,r]=a.trigger.split(":");if(getStatRank(newState.statXP[st])===r)unlock=true;}
     if(a.type==="streak"&&newState.hunter.streak>=a.trigger)unlock=true;
     if(a.type==="tasks"&&totalTasksDone>=a.trigger)unlock=true;
+    if(a.type==="boss_count"&&bossesDefeated.length>=a.trigger)unlock=true;
+    if(a.type==="tier_clear"){
+      const tierBosses=BOSSES.filter(b=>b.tier===a.trigger).map(b=>b.id);
+      if(tierBosses.length&&tierBosses.every(id=>bossesDefeated.includes(id)))unlock=true;
+    }
     if(unlock)newUnlocks.push(a.id);
   });
   return newUnlocks;
-}
-
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-const INIT={
-  hunter:{name:"Hunter",xp:0,totalXP:0,streak:0,daysMissed:0,tasksCompleted:0},
-  statXP:{strength:0,endurance:0,intelligence:0,discipline:0,mental:0,charisma:0,creativity:0,recovery:0},
-  quests:[],dailyTasks:[],notifications:[],log:[],lastResetDate:"",
-  achievements:[],    // array of achievement IDs
-  titles:[],          // array of unlocked title strings
-  equippedTitle:null, // currently equipped title string
-  activeBoss:null,    // { bossId, startTime, tasksDone:[], failed, won }
-  nextBossSpawnTime:0, // timestamp when next boss should auto-spawn
-};
-
-// Random boss spawn: tier weighted by probability
-// Common 40%, Uncommon 25%, Rare 18%, Epic 10%, Legendary 5%, Mythic 2%
-const BOSS_TIER_WEIGHTS=[
-  {tier:"common",weight:40},{tier:"uncommon",weight:25},{tier:"rare",weight:18},
-  {tier:"epic",weight:10},{tier:"legendary",weight:5},{tier:"mythic",weight:2}
-];
-function pickRandomBossTier(){
-  const roll=Math.random()*100;let acc=0;
-  for(const t of BOSS_TIER_WEIGHTS){acc+=t.weight;if(roll<acc)return t.tier;}
-  return "common";
-}
-function scheduleNextBossMs(){
-  // Random between 20 minutes and 3 hours (1200000 - 10800000 ms)
-  return Date.now()+(1200000+Math.floor(Math.random()*9600000));
-}
-// Compute HP damage per task: 100 HP / number of tasks, floored, last task takes remainder
-function getBossDamage(boss,taskIndex){
-  const n=boss.tasks.length;
-  const base=Math.floor(100/n);
-  return taskIndex===n-1?100-(base*(n-1)):base;
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 function App({onSignOut}){
   const [S,setS]=useState(()=>{
     try{
-      const s=localStorage.getItem("sl_v7");
+      const s=localStorage.getItem("sl_v8");
       const parsed=s?JSON.parse(s):INIT;
-      // Ensure nextBossSpawnTime is set
-      if(!parsed.nextBossSpawnTime||parsed.nextBossSpawnTime===0){
-        parsed.nextBossSpawnTime=scheduleNextBossMs();
-      }
+      if(!parsed.nextBossSpawnTime||parsed.nextBossSpawnTime===0)parsed.nextBossSpawnTime=scheduleNextBossMs();
+      if(!parsed.bossesDefeated)parsed.bossesDefeated=[];
+      if(!parsed.log)parsed.log=[];
       return parsed;
     }catch{return{...INIT,nextBossSpawnTime:scheduleNextBossMs()};}
   });
@@ -687,78 +667,74 @@ function App({onSignOut}){
   const [selCard,setSelCard]=useState(null);
   const [subForms,setSubForms]=useState([]);
   const [newName,setNewName]=useState("");
-  const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [timeLeft,setTimeLeft]=useState(getMidnightMs());
   const [confirmReset,setConfirmReset]=useState(false);
-  const [achievePopup,setAchievePopup]=useState(null); // {name,desc,buff,icon}
+  const [achievePopup,setAchievePopup]=useState(null);
   const [showBoss,setShowBoss]=useState(false);
   const bossTimerRef=useRef(null);
 
-  useEffect(()=>{try{localStorage.setItem("sl_v7",JSON.stringify(S));backupGameState();}catch(_){}},[S]);
+  useEffect(()=>{try{localStorage.setItem("sl_v8",JSON.stringify(S));backupGameState();}catch(_){}},[S]);
   useEffect(()=>{const iv=setInterval(()=>setTimeLeft(getMidnightMs()),1000);return()=>clearInterval(iv);},[]);
   useEffect(()=>{checkReset();const iv=setInterval(checkReset,60000);return()=>clearInterval(iv);},[]);
-  useEffect(()=>{const asked=localStorage.getItem("sl_notif_asked");if(!asked&&typeof Notification!=="undefined"&&Notification.permission==="default"){const t=setTimeout(()=>setShowNotifPrompt(true),1400);return()=>clearTimeout(t);}},[]);
 
-
-  // Boss timer checker
+  // Boss timer — checks expiry every 5s
   useEffect(()=>{
     if(bossTimerRef.current)clearInterval(bossTimerRef.current);
     bossTimerRef.current=setInterval(()=>{
       setS(prev=>{
         if(!prev.activeBoss||prev.activeBoss.failed||prev.activeBoss.won)return prev;
-        const boss=BOSSES.find(b=>b.id===prev.activeBoss.bossId);
-        if(!boss)return prev;
+        const boss=BOSSES.find(b=>b.id===prev.activeBoss.bossId);if(!boss)return prev;
         const elapsed=Date.now()-prev.activeBoss.startTime;
-        if(elapsed>=boss.timeLimitMs){
-          // XP penalties for incomplete tasks: 50% stat XP loss each, 20% overall XP loss
-          const tasksDone=prev.activeBoss.tasksDone||[];
-          const incompleteTasks=boss.tasks.filter(t=>!tasksDone.includes(t.id));
-          const statXP={...prev.statXP};
-          const lossDetails=[];
-          incompleteTasks.forEach(t=>{
-            const loss=Math.floor(t.xp*0.5);
-            if(statXP[t.stat]!==undefined){statXP[t.stat]=Math.max(0,statXP[t.stat]-loss);}
-            lossDetails.push(`-${loss} ${STATS[t.stat]?.label||t.stat}`);
-          });
-          const overallLoss=Math.floor(boss.xpReward*0.20);
-          const newHunterXP=Math.max(0,prev.hunter.xp-overallLoss);
-          const hunter={...prev.hunter,xp:newHunterXP};
-          const logMsg=`⚠ BOSS ESCAPED: ${boss.name} — Overall -${overallLoss} XP · ${lossDetails.join(", ")||"no incomplete tasks"}`;
-          sendNotif("⚠ Boss Escaped!",`${boss.name} fled. -${overallLoss} overall XP lost.`);
-          setTimeout(()=>playSfx("fail"),100);
-          syncBossStateToFirestore({bossId:prev.activeBoss.bossId,startTime:prev.activeBoss.startTime,failed:true,won:false});
-          return{...prev,activeBoss:{...prev.activeBoss,failed:true},statXP,hunter,
-            log:[{id:Date.now(),text:logMsg,time:new Date().toLocaleString()},...prev.log].slice(0,80),
-            notifications:[{id:Date.now(),msg:logMsg,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
+        const remaining=boss.timeLimitMs-elapsed;
+        // 30-min warning log
+        if(remaining>0&&remaining<=1800000&&!prev.activeBoss.warnedAt30){
+          const minsLeft=Math.floor(remaining/60000);
+          const logMsg=`⚠ BOSS WARNING: ${boss.name} — only ${minsLeft} minutes left! Complete the tasks now!`;
+          return{...prev,activeBoss:{...prev.activeBoss,warnedAt30:true},
+            log:[{id:Date.now(),text:logMsg,time:new Date().toLocaleString()},...prev.log].slice(0,100)};
         }
-        return prev;
+        if(remaining>0)return prev;
+        // Boss escaped
+        const tasksDone=prev.activeBoss.tasksDone||[];
+        const incompleteTasks=boss.tasks.filter(t=>!tasksDone.includes(t.id));
+        const statXP={...prev.statXP};
+        const lossDetails=[];
+        incompleteTasks.forEach(t=>{
+          const loss=Math.floor(t.xp*0.5);
+          if(statXP[t.stat]!==undefined)statXP[t.stat]=Math.max(0,statXP[t.stat]-loss);
+          lossDetails.push(`-${loss} ${STATS[t.stat]?.label||t.stat}`);
+        });
+        const overallLoss=Math.floor(boss.xpReward*0.20);
+        const hunter={...prev.hunter,xp:Math.max(0,prev.hunter.xp-overallLoss)};
+        const logMsg=`💀 BOSS ESCAPED: ${boss.name} fled! Overall -${overallLoss} XP. ${lossDetails.join(", ")||"No stat losses."}`;
+        setTimeout(()=>playSfx("fail"),100);
+        return{...prev,activeBoss:{...prev.activeBoss,failed:true},statXP,hunter,
+          log:[{id:Date.now(),text:logMsg,time:new Date().toLocaleString()},...prev.log].slice(0,100)};
       });
     },5000);
     return()=>clearInterval(bossTimerRef.current);
   },[]);
 
-  // Random boss auto-spawn checker
+  // Auto boss spawn checker
   useEffect(()=>{
     const iv=setInterval(()=>{
       setS(prev=>{
-        // Don't spawn if a boss is already active (not failed/won)
         if(prev.activeBoss&&!prev.activeBoss.failed&&!prev.activeBoss.won)return prev;
         if(Date.now()<(prev.nextBossSpawnTime||0))return prev;
-        // Time to spawn! Pick random tier & boss
         const tier=pickRandomBossTier();
         const possible=BOSSES.filter(b=>b.tier===tier);
         const boss=possible[Math.floor(Math.random()*possible.length)];
         const next=scheduleNextBossMs();
-        sendNotif("⚔ Boss Appeared!",`${boss.name} — ${boss.subtitle}. Defeat it before time runs out!`);
-        setTimeout(()=>{playSfx("boss");showMsg(`⚔ ${TIERS[tier].label} BOSS: ${boss.name} has appeared!`,"success");setShowBoss(true);syncBossStateToFirestore({bossId:boss.id,startTime:Date.now(),failed:false,won:false});},100);
+        setTimeout(()=>{playSfx("boss");showMsg(`⚔ ${TIERS[tier].label} BOSS: ${boss.name} has appeared!`,"success");setShowBoss(true);},100);
+        const logMsg=`⚔ BOSS SPAWNED: [${TIERS[tier].label}] ${boss.name} — ${boss.subtitle}. Time limit: ${boss.timeLimitMs/3600000}h.`;
         return{
           ...prev,
           activeBoss:{bossId:boss.id,startTime:Date.now(),tasksDone:[],failed:false,won:false},
           nextBossSpawnTime:next,
-          notifications:[{id:Date.now(),msg:`⚔ BOSS APPEARED: [${TIERS[tier].label}] ${boss.name} — ${boss.subtitle}`,type:"boss",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30),
+          log:[{id:Date.now(),text:logMsg,time:new Date().toLocaleString()},...prev.log].slice(0,100),
         };
       });
-    },15000); // check every 15 seconds
+    },15000);
     return()=>clearInterval(iv);
   },[]);
 
@@ -778,30 +754,30 @@ function App({onSignOut}){
     });
     const newTasks=[];
     quests.forEach(q=>{if(!q.active)return;const pen=failed[q.id]||[];newTasks.push(...genTasks(q,q.subGoals[0]?.dayIndex||0,pen));});
-    const log=[...(totalMissed>0?[{id:Date.now(),text:`Day reset: ${totalMissed} task(s) missed — penalty applied.`,time:new Date().toLocaleString()}]:[]),...prev.log].slice(0,80);
-    const hunter={...prev.hunter,daysMissed:prev.hunter.daysMissed+(totalMissed>0?1:0),streak:totalMissed>0?0:prev.hunter.streak};
+    const wasYesterday=prev.lastResetDate===new Date(Date.now()-86400000).toDateString();
+    const newStreak=prev.lastResetDate&&(wasYesterday||totalMissed===0)?prev.hunter.streak+1:0;
+    const hunter={...prev.hunter,daysMissed:prev.hunter.daysMissed+(totalMissed>0?1:0),streak:newStreak};
+    const resetMsg=`🔄 DAILY RESET — New day: ${today}. Streak: ${newStreak}. ${totalMissed>0?`${totalMissed} task(s) missed — penalty applied.`:"Clean slate!"}`;
+    const log=[{id:Date.now(),text:resetMsg,time:new Date().toLocaleString()},...prev.log].slice(0,100);
     return{...prev,quests,dailyTasks:newTasks,hunter,log,lastResetDate:today};
   }
 
   const rank=getRank(S.hunter.xp);
   const rc=RANK_COLORS[rank];
   const xi=getXPInfo(S.hunter.xp);
-  const equippedTitle=S.equippedTitle;
 
   function showMsg(msg,type){setToast({msg,type:type||"info"});setTimeout(()=>setToast(null),2800);}
-  function pushNotif(msg,type){setS(prev=>({...prev,notifications:[{id:Date.now(),msg,type:type||"system",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)}));}
 
   function triggerAchievePopup(ids){
     if(!ids||!ids.length)return;
     const first=ids[0];
     let a=ACHIEVEMENT_CATALOG.find(a=>a.id===first);
-    if(!a){BOSSES.forEach(b=>{if(b.achievementDrop?.id===first)a=b.achievementDrop;});}
-    if(a){
-      setAchievePopup(a);
-      setTimeout(()=>setAchievePopup(null),4000);
-      playSfx("levelup");
-      sendNotif("Achievement Unlocked! 🏆",`${a.name} — ${a.desc}`);
-    }
+    if(!a)BOSSES.forEach(b=>{if(b.achDrop?.id===first)a=b.achDrop;});
+    if(a){setAchievePopup(a);setTimeout(()=>setAchievePopup(null),4000);playSfx("levelup");}
+  }
+
+  function addLog(text){
+    setS(prev=>({...prev,log:[{id:Date.now(),text,time:new Date().toLocaleString()},...prev.log].slice(0,100)}));
   }
 
   function completeTask(id){
@@ -813,14 +789,15 @@ function App({onSignOut}){
       const oldRank=getRank(prev.hunter.xp);
       const hunter={...prev.hunter,xp:prev.hunter.xp+buffXP,totalXP:prev.hunter.totalXP+buffXP,tasksCompleted:(prev.hunter.tasksCompleted||0)+1};
       const newRank=getRank(hunter.xp);
-      const doneAll=dailyTasks.filter(dt=>dt.questId===t.questId).every(dt=>dt.completed||dt.failed);
-      const newStreak=doneAll?prev.hunter.streak+1:prev.hunter.streak;
-      const log=[{id:Date.now(),text:`✓ ${t.title}: ${t.value} ${t.unit} (+${buffXP} XP)`,time:new Date().toLocaleString()},...prev.log].slice(0,80);
-      const ns={...prev,dailyTasks,statXP,hunter:{...hunter,streak:newStreak},log};
+      const log=[{id:Date.now(),text:`✓ ${t.title}: ${t.value} ${t.unit} (+${buffXP} XP)`,time:new Date().toLocaleString()},...prev.log].slice(0,100);
+      const ns={...prev,dailyTasks,statXP,hunter,log};
       const newAch=checkAchievements(prev,ns);
-      if(newRank!==oldRank){sendNotif("⬆ RANK UP!",`You have ascended to Rank ${newRank}!`);setTimeout(()=>{playSfx("levelup");showMsg(`⬆ RANK UP! You are now Rank ${newRank}`,"success");},100);}
-      if(newAch.length){setTimeout(()=>triggerAchievePopup(newAch),500);}
-      sendNotif("Quest Complete! ⚔",`+${buffXP} XP — ${t.title}`);
+      if(newRank!==oldRank){setTimeout(()=>{playSfx("levelup");showMsg(`⬆ RANK UP! Now Rank ${newRank}`,"success");},200);}
+      if(newAch.length){
+        const achLog=[{id:Date.now()+1,text:`🏆 Achievement unlocked: ${newAch.map(id=>{const a=ACHIEVEMENT_CATALOG.find(a=>a.id===id);return a?.name||id;}).join(", ")}`,time:new Date().toLocaleString()},...ns.log].slice(0,100);
+        setTimeout(()=>triggerAchievePopup(newAch),500);
+        return{...ns,achievements:[...(ns.achievements||[]),...newAch],log:achLog};
+      }
       return{...ns,achievements:[...(ns.achievements||[]),...newAch]};
     });
     playSfx("success");showMsg("Task complete! XP gained.","success");
@@ -838,14 +815,12 @@ function App({onSignOut}){
       const newXP=Math.max(0,prev.hunter.xp-overallLoss);
       const hunter={...prev.hunter,xp:newXP,streak:0,daysMissed:prev.hunter.daysMissed+1};
       const logText=`✗ FAILED: ${t.title} — -${statLoss} ${STATS[t.stat]?.label||""} XP · -${overallLoss} Overall XP · tomorrow +30%`;
-      const notifMsg=`⚠ Task failed: ${t.title}. -${statLoss} ${STATS[t.stat]?.label||""} XP, -${overallLoss} Overall XP. Tomorrow +30%.`;
-      const log=[{id:Date.now(),text:logText,time:new Date().toLocaleString()},...prev.log].slice(0,80);
-      return{...prev,dailyTasks,statXP,hunter,log,notifications:[{id:Date.now(),msg:notifMsg,type:"penalty",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30)};
+      const log=[{id:Date.now(),text:logText,time:new Date().toLocaleString()},...prev.log].slice(0,100);
+      return{...prev,dailyTasks,statXP,hunter,log};
     });
     playSfx("fail");showMsg("Task failed — XP lost, tomorrow harder.","danger");
   }
 
-  // Boss functions
   function spawnBoss(tier){
     const possible=BOSSES.filter(b=>b.tier===tier);
     const boss=possible[Math.floor(Math.random()*possible.length)];
@@ -853,12 +828,9 @@ function App({onSignOut}){
       ...prev,
       activeBoss:{bossId:boss.id,startTime:Date.now(),tasksDone:[],failed:false,won:false},
       nextBossSpawnTime:scheduleNextBossMs(),
-      notifications:[{id:Date.now(),msg:`⚔ BOSS APPEARED: ${boss.name} — ${boss.subtitle}`,type:"boss",time:new Date().toLocaleTimeString()},...prev.notifications].slice(0,30),
+      log:[{id:Date.now(),text:`⚔ BOSS SPAWNED (manual): [${TIERS[tier].label}] ${boss.name} — ${boss.subtitle}`,time:new Date().toLocaleString()},...prev.log].slice(0,100),
     }));
-    playSfx("boss");
-    sendNotif("⚔ Boss Appeared!",`${boss.name} has appeared. Defeat it before time runs out!`);
-    syncBossStateToFirestore({bossId:boss.id,startTime:Date.now(),failed:false,won:false});
-    setShowBoss(true);
+    playSfx("boss");setShowBoss(true);
   }
 
   function completeBossTask(taskId){
@@ -867,7 +839,6 @@ function App({onSignOut}){
       const boss=BOSSES.find(b=>b.id===prev.activeBoss.bossId);if(!boss)return prev;
       const tasksDone=[...prev.activeBoss.tasksDone,taskId];
       const allDone=boss.tasks.every(t=>tasksDone.includes(t.id));
-      // XP for this task
       const bossTask=boss.tasks.find(t=>t.id===taskId);
       const xp=bossTask?Math.round(bossTask.xp*(prev.achievements?getBuffMult(prev.achievements,bossTask.stat):1)):0;
       const statXP={...prev.statXP};
@@ -878,29 +849,41 @@ function App({onSignOut}){
       let activeBoss={...prev.activeBoss,tasksDone};
       let newTitles=[...(prev.titles||[])];
       let newAch=[...(prev.achievements||[])];
-      let popupTarget=null;
+      let bossesDefeated=[...(prev.bossesDefeated||[])];
+      let logEntries=[{id:Date.now(),text:`⚔ Boss task: ${bossTask?.desc||taskId} (+${xp} XP)`,time:new Date().toLocaleString()}];
+
       if(allDone){
         activeBoss={...activeBoss,won:true};
-        // Boss defeat XP
         const bonusXP=boss.xpReward;
         hunter.xp+=bonusXP;hunter.totalXP+=bonusXP;
-        // 5% title drop
-        const titleRoll=Math.random();
-        let newTitle=null;
-        if(titleRoll<0.05&&boss.titleDrop&&!newTitles.includes(boss.titleDrop)){newTitles.push(boss.titleDrop);newTitle=boss.titleDrop;setTimeout(()=>{playSfx("title");showMsg(`Title unlocked: "${newTitle}"!`,"success");},600);}
-        // 5% achievement drop
-        const achRoll=Math.random();
-        if(achRoll<0.05&&boss.achievementDrop&&!newAch.includes(boss.achievementDrop.id)){newAch.push(boss.achievementDrop.id);popupTarget=boss.achievementDrop.id;setTimeout(()=>triggerAchievePopup([boss.achievementDrop.id]),900);}
-        sendNotif("⚔ Boss Defeated!",`${boss.name} has been slain! +${bonusXP} XP`);
+        if(!bossesDefeated.includes(boss.id))bossesDefeated.push(boss.id);
+        logEntries.unshift({id:Date.now()+2,text:`🏆 BOSS DEFEATED: ${boss.name} [${boss.tier.toUpperCase()}] +${bonusXP} XP!`,time:new Date().toLocaleString()});
+        // Title drop (5%)
+        if(boss.titleDrop&&Math.random()<0.05&&!newTitles.includes(boss.titleDrop)){
+          newTitles.push(boss.titleDrop);
+          logEntries.unshift({id:Date.now()+3,text:`✨ TITLE DROPPED: "${boss.titleDrop}" — rare reward!`,time:new Date().toLocaleString()});
+          setTimeout(()=>{playSfx("title");showMsg(`Title dropped: "${boss.titleDrop}"!`,"success");},600);
+        }
+        // Achievement drop (5%)
+        if(boss.achDrop&&Math.random()<0.05&&!newAch.includes(boss.achDrop.id)){
+          newAch.push(boss.achDrop.id);
+          logEntries.unshift({id:Date.now()+4,text:`🏆 ACHIEVEMENT DROPPED: "${boss.achDrop.name}" — ${boss.achDrop.desc}`,time:new Date().toLocaleString()});
+          setTimeout(()=>triggerAchievePopup([boss.achDrop.id]),900);
+        }
         setTimeout(()=>{playSfx("epic");showMsg(`Boss defeated! +${bonusXP} XP`,"success");},300);
-        syncBossStateToFirestore({bossId:prev.activeBoss.bossId,startTime:prev.activeBoss.startTime,failed:false,won:true});
       }
-      if(newRank!==oldRank){setTimeout(()=>{playSfx("levelup");showMsg(`⬆ RANK UP! Now Rank ${newRank}`,"success");},400);}
-      const log=[{id:Date.now(),text:`⚔ Boss task: ${bossTask?.desc||taskId} (+${xp} XP)${allDone?" — BOSS DEFEATED!":""}`,time:new Date().toLocaleString()},...prev.log].slice(0,80);
-      const nsBase={...prev,activeBoss,statXP,hunter,log,titles:newTitles,achievements:newAch};
+      if(newRank!==oldRank){
+        logEntries.unshift({id:Date.now()+5,text:`⬆ RANK UP: Now Rank ${newRank}!`,time:new Date().toLocaleString()});
+        setTimeout(()=>{playSfx("levelup");showMsg(`⬆ RANK UP! Now Rank ${newRank}`,"success");},400);
+      }
+      const nsBase={...prev,activeBoss,statXP,hunter,bossesDefeated,log:[...logEntries,...prev.log].slice(0,100),titles:newTitles,achievements:newAch};
       const extraAch=checkAchievements(prev,nsBase);
-      if(extraAch.length){setTimeout(()=>triggerAchievePopup(extraAch),1000);}
-      return{...nsBase,achievements:[...newAch,...extraAch]};
+      if(extraAch.length){
+        setTimeout(()=>triggerAchievePopup(extraAch),1000);
+        const achLog={id:Date.now()+6,text:`🏆 Achievement unlocked: ${extraAch.map(id=>{const a=ACHIEVEMENT_CATALOG.find(a=>a.id===id);return a?.name||id;}).join(", ")}`,time:new Date().toLocaleString()};
+        return{...nsBase,achievements:[...newAch,...extraAch],log:[achLog,...nsBase.log].slice(0,100)};
+      }
+      return nsBase;
     });
     playSfx("success");
   }
@@ -912,16 +895,17 @@ function App({onSignOut}){
   function submitQuest(){
     if(!selCard)return;
     for(const sg of subForms){if(!sg.title.trim()){showMsg(`Enter a name for ${STATS[sg.stat].label} task`,"danger");return;}if(!parseFloat(sg.target)||parseFloat(sg.target)<=0){showMsg(`Enter a target for ${sg.title||sg.stat}`,"danger");return;}}
-    const quest={id:Date.now(),cardId:selCard.id,cardTitle:selCard.title,cardIcon:selCard.icon,tier:selCard.tier,accent:selCard.accent,stats:selCard.stats,xpMult:TIERS[selCard.tier].xpMult,active:true,completed:false,subGoals:subForms.map(sg=>{const target=parseFloat(sg.target),sv=parseFloat(sg.startValue);return{stat:sg.stat,title:sg.title.trim(),detail:sg.detail.trim(),target,unit:sg.unit.trim()||"reps",startValue:(!isNaN(sv)&&sv>=0)?sv:(STATS[sg.stat]?.mode==="flat"?target:Math.round(target*0.3)||1),currentLevel:0,durationWeeks:parseInt(sg.durationWeeks)||STATS[sg.stat].defaultWeeks||4,dayIndex:0,done:false};})};
+    const quest={id:Date.now(),cardId:selCard.id,cardTitle:selCard.title,cardIcon:selCard.icon,tier:selCard.tier,accent:selCard.accent,stats:selCard.stats,xpMult:TIERS[selCard.tier].xpMult,active:true,completed:false,
+      subGoals:subForms.map(sg=>{const target=parseFloat(sg.target),sv=parseFloat(sg.startValue);return{stat:sg.stat,title:sg.title.trim(),detail:sg.detail.trim(),target,unit:sg.unit.trim()||"reps",startValue:(!isNaN(sv)&&sv>=0)?sv:(STATS[sg.stat]?.mode==="flat"?target:Math.round(target*0.3)||1),currentLevel:0,durationWeeks:parseInt(sg.durationWeeks)||STATS[sg.stat].defaultWeeks||4,dayIndex:0,done:false};})};
     const tasks=genTasks(quest,0,[]);
-    setS(prev=>({...prev,quests:[...prev.quests,quest],dailyTasks:[...prev.dailyTasks.filter(t=>t.questId!==quest.id),...tasks],lastResetDate:prev.lastResetDate||todayStr(),log:[{id:Date.now(),text:`Quest accepted: [${quest.cardTitle}] — ${quest.subGoals.map(s=>s.title).join(", ")}`,time:new Date().toLocaleString()},...prev.log].slice(0,80)}));
-    pushNotif(`New quest registered: ${quest.cardTitle}.`,"quest");
+    setS(prev=>({...prev,quests:[...prev.quests,quest],dailyTasks:[...prev.dailyTasks.filter(t=>t.questId!==quest.id),...tasks],lastResetDate:prev.lastResetDate||todayStr(),
+      log:[{id:Date.now(),text:`📋 Quest accepted: [${quest.cardTitle}] — ${quest.subGoals.map(s=>s.title).join(", ")}`,time:new Date().toLocaleString()},...prev.log].slice(0,100)}));
     setModal(null);playSfx("epic");showMsg(`Quest registered! ${tasks.length} daily task(s) active.`,"success");
   }
 
   function doRename(){const n=(newName||"").trim();if(!n)return;setS(prev=>({...prev,hunter:{...prev.hunter,name:n}}));setModal(null);showMsg("Name updated","success");}
-  function doFullReset(){try{localStorage.removeItem("sl_v7")}catch(_){}setS({...INIT});setModal(null);setConfirmReset(false);showMsg("Data reset.","info");}
-  function equipTitle(t){setS(prev=>({...prev,equippedTitle:prev.equippedTitle===t?null:t}));playSfx("click");}
+  function doFullReset(){try{localStorage.removeItem("sl_v8");}catch(_){}setS({...INIT,nextBossSpawnTime:scheduleNextBossMs()});setModal(null);setConfirmReset(false);showMsg("Data reset.","info");}
+  function equipTitle(t){setS(prev=>{const newTitle=prev.equippedTitle===t?null:t;return{...prev,equippedTitle:newTitle,log:[{id:Date.now(),text:`👑 Title ${newTitle?"equipped":"unequipped"}: "${t}"`,time:new Date().toLocaleString()},...prev.log].slice(0,100)};});playSfx("click");}
 
   const activeTasks=S.dailyTasks.filter(t=>!t.completed&&!t.failed);
   const completedTasks=S.dailyTasks.filter(t=>t.completed);
@@ -954,7 +938,7 @@ function App({onSignOut}){
           <div>
             <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:3}}>SYSTEM</div>
             <div style={{fontSize:13,fontWeight:"bold",color:rc,letterSpacing:1}}>
-              [{rank}] {S.hunter.name}{equippedTitle?<span style={{color:"#f59e0b",fontSize:10}}> ({equippedTitle})</span>:null}
+              [{rank}] {S.hunter.name}{S.equippedTitle&&<span style={{color:"#f59e0b",fontSize:10}}> ({S.equippedTitle})</span>}
             </div>
           </div>
           <div style={{textAlign:"right"}}>
@@ -975,6 +959,7 @@ function App({onSignOut}){
             <span style={{color:"#4ade80"}}>🔥 {S.hunter.streak}</span>
             <span style={{color:"#f59e0b"}}>✓ {completedTasks.length}/{S.dailyTasks.length}</span>
             <span style={{color:"#a78bfa"}}>🏆 {(S.achievements||[]).length}</span>
+            <span style={{color:"#ef4444"}}>⚔ {(S.bossesDefeated||[]).length}</span>
           </div>
           <div className={urgent?"timer-urgent":""} style={{display:"flex",alignItems:"center",gap:5,background:"rgba(0,0,0,0.4)",border:"1px solid "+(urgent?"#ef4444":"#1e1e35"),borderRadius:3,padding:"3px 8px"}}>
             <span style={{fontSize:9,color:urgent?"#ef4444":"#3a3a5a"}}>RESET</span>
@@ -985,9 +970,9 @@ function App({onSignOut}){
 
       {/* Nav */}
       <div style={C.nav}>
-        {["dashboard","stats","quests","achieve","notifs"].map(v=>
+        {["dashboard","stats","quests","bosses","achieve","log"].map(v=>
           <button key={v} style={C.navBtn(v)} onClick={()=>{playSfx("click");setView(v);}}>
-            {v==="achieve"?"ACHIEVE":v==="dashboard"?"HOME":v==="notifs"?"LOG":v.toUpperCase()}
+            {v==="achieve"?"ACHIEVE":v==="dashboard"?"HOME":v.toUpperCase()}
           </button>
         )}
       </div>
@@ -1013,8 +998,9 @@ function App({onSignOut}){
         {view==="dashboard"&&<Dashboard activeTasks={activeTasks} completedTasks={completedTasks} allTasks={S.dailyTasks} onComplete={completeTask} onFail={failTask} rc={rc} C={C} onSpawnBoss={spawnBoss} activeBoss={S.activeBoss} nextBossSpawnTime={S.nextBossSpawnTime}/>}
         {view==="stats"&&<StatsView statXP={S.statXP} hunter={S.hunter} achievements={S.achievements||[]} rc={rc} C={C}/>}
         {view==="quests"&&<QuestsView quests={S.quests} dailyTasks={S.dailyTasks} rc={rc} C={C}/>}
-        {view==="achieve"&&<AchieveView achievements={S.achievements||[]} titles={S.titles||[]} equippedTitle={S.equippedTitle} onEquipTitle={equipTitle} C={C} rc={rc}/>}
-        {view==="notifs"&&<LogView notifications={S.notifications} log={S.log} C={C}/>}
+        {view==="bosses"&&<BossesView bosses={BOSSES} bossesDefeated={S.bossesDefeated||[]} activeBoss={S.activeBoss} onSpawnBoss={spawnBoss} onViewBoss={()=>setShowBoss(true)} C={C} rc={rc}/>}
+        {view==="achieve"&&<AchieveView achievements={S.achievements||[]} titles={S.titles||[]} equippedTitle={S.equippedTitle} onEquipTitle={equipTitle} C={C} rc={rc} bossesDefeated={S.bossesDefeated||[]}/>}
+        {view==="log"&&<LogView log={S.log} C={C}/>}
       </div>
 
       <button style={{position:"fixed",bottom:20,right:16,width:54,height:54,borderRadius:"50%",background:"#a78bfa",border:"none",color:"#07070f",fontSize:26,cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",boxShadow:"0 0 20px rgba(167,139,250,0.5)"}} onClick={openQuestPicker}>+</button>
@@ -1022,7 +1008,6 @@ function App({onSignOut}){
 
       {toast&&<div style={{position:"fixed",bottom:86,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#0f2a0f":toast.type==="danger"?"#2a0f0f":"#0f0f2a",border:"1px solid "+(toast.type==="success"?"#4ade80":toast.type==="danger"?"#ef4444":"#a78bfa"),padding:"8px 18px",borderRadius:4,fontSize:12,color:"#e0d8cc",zIndex:200,whiteSpace:"nowrap",pointerEvents:"none"}}>{toast.msg}</div>}
 
-      {/* Achievement popup */}
       {achievePopup&&(
         <div className="achieve-pop" style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",background:"#1a0a2a",border:"2px solid #a78bfa",borderRadius:8,padding:"14px 20px",zIndex:300,textAlign:"center",minWidth:240,boxShadow:"0 0 30px rgba(167,139,250,0.5)"}}>
           <div style={{fontSize:28,marginBottom:4}}>{achievePopup.icon||"🏆"}</div>
@@ -1038,12 +1023,9 @@ function App({onSignOut}){
         const boss=BOSSES.find(b=>b.id===S.activeBoss.bossId);
         if(!boss)return null;
         const tasksDone=S.activeBoss.tasksDone||[];
-        const won=S.activeBoss.won;
-        const failed=S.activeBoss.failed;
-        const totalHP=100;
+        const won=S.activeBoss.won,failed=S.activeBoss.failed;
         const hpDealt=tasksDone.reduce((acc,tid)=>{const ti=boss.tasks.findIndex(t=>t.id===tid);return acc+(ti>=0?getBossDamage(boss,ti):0);},0);
-        const hpRemaining=Math.max(0,totalHP-hpDealt);
-        const pct=Math.round((hpDealt/totalHP)*100);
+        const hpRemaining=Math.max(0,100-hpDealt);
         return(
           <div style={{...C.overlay,zIndex:150}}>
             <div style={{...C.box,border:`1px solid ${boss.color}`,background:boss.bgColor,maxWidth:420}}>
@@ -1055,29 +1037,21 @@ function App({onSignOut}){
                 </div>
                 <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={()=>{playSfx("click");setShowBoss(false);}}>✕</button>
               </div>
-
-              {/* Sprite */}
               <div style={{textAlign:"center",marginBottom:12}}>
                 <div className={won||failed?"":tasksDone.length>0?"boss-hurt":"boss-float"} style={{display:"inline-block",filter:won?"grayscale(1) brightness(0.3)":failed?"sepia(1) hue-rotate(300deg)":"none"}}>
-                  <BossSprite type={boss.sprite} color={boss.color} size={100}/>
+                  <BossSprite type={boss.sprite} size={100}/>
                 </div>
                 {(won||failed)&&<div style={{fontSize:12,color:won?"#4ade80":"#ef4444",marginTop:6,letterSpacing:2}}>{won?"⚔ DEFEATED":"✗ ESCAPED"}</div>}
               </div>
-
-              {/* HP bar (tasks = HP) */}
               {!won&&!failed&&(
                 <>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#3a3a5a",marginBottom:3}}>
-                    <span>HP</span><span>{hpRemaining}/{totalHP}</span>
-                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#3a3a5a",marginBottom:3}}><span>HP</span><span>{hpRemaining}/100</span></div>
                   <div style={{height:6,background:"#1a0a0a",borderRadius:3,marginBottom:10,border:"1px solid #3a1a1a"}}>
-                    <div style={{height:"100%",width:(100-pct)+"%",background:hpRemaining>60?"#ef4444":hpRemaining>30?"#f59e0b":"#4ade80",borderRadius:3,transition:"width 0.4s",boxShadow:`0 0 6px ${hpRemaining>60?"#ef4444":hpRemaining>30?"#f59e0b":"#4ade80"}`}}/>
+                    <div style={{height:"100%",width:hpRemaining+"%",background:hpRemaining>60?"#ef4444":hpRemaining>30?"#f59e0b":"#4ade80",borderRadius:3,transition:"width 0.4s"}}/>
                   </div>
                   <BossTimer boss={boss} startTime={S.activeBoss.startTime} tasksDone={tasksDone} large/>
                 </>
               )}
-
-              {/* Rewards preview */}
               <div style={{display:"flex",gap:8,marginBottom:12,marginTop:4}}>
                 <div style={{flex:1,background:"rgba(0,0,0,0.3)",border:"1px solid #2a2a4a",borderRadius:3,padding:"7px 9px",textAlign:"center"}}>
                   <div style={{fontSize:9,color:"#3a3a5a"}}>XP REWARD</div>
@@ -1085,15 +1059,13 @@ function App({onSignOut}){
                 </div>
                 <div style={{flex:1,background:"rgba(0,0,0,0.3)",border:"1px solid #2a2a4a",borderRadius:3,padding:"7px 9px",textAlign:"center"}}>
                   <div style={{fontSize:9,color:"#3a3a5a"}}>TITLE DROP</div>
-                  <div style={{fontSize:10,color:"#f59e0b"}}>5% chance</div>
+                  <div style={{fontSize:10,color:"#f59e0b"}}>{boss.titleDrop?"5% — "+boss.titleDrop:"—"}</div>
                 </div>
                 <div style={{flex:1,background:"rgba(0,0,0,0.3)",border:"1px solid #2a2a4a",borderRadius:3,padding:"7px 9px",textAlign:"center"}}>
                   <div style={{fontSize:9,color:"#3a3a5a"}}>ACHIEVEMENT</div>
-                  <div style={{fontSize:10,color:"#a78bfa"}}>5% chance</div>
+                  <div style={{fontSize:10,color:"#a78bfa"}}>{boss.achDrop?"5% — "+boss.achDrop.name:"—"}</div>
                 </div>
               </div>
-
-              {/* Tasks */}
               <div style={{fontSize:9,color:boss.color,letterSpacing:2,marginBottom:8}}>DUNGEON TASKS</div>
               {boss.tasks.map((t,tIdx)=>{
                 const done=tasksDone.includes(t.id);
@@ -1108,14 +1080,13 @@ function App({onSignOut}){
                       <div style={{fontSize:9,color:STATS[t.stat]?.color||"#4a4a6a",marginTop:1}}>{STATS[t.stat]?.icon} {STATS[t.stat]?.label} · +{t.xp} XP · <span style={{color:"#ef4444"}}>-{dmg} HP</span></div>
                     </div>
                     {!done&&!won&&!failed&&(
-                      <button style={{padding:"5px 10px",background:"none",border:`1px solid ${STATS[t.stat]?.color||"#4ade80"}`,color:STATS[t.stat]?.color||"#4ade80",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1,whiteSpace:"nowrap"}} onClick={()=>completeBossTask(t.id)}>DONE</button>
+                      <button style={{padding:"5px 10px",background:"none",border:`1px solid ${STATS[t.stat]?.color||"#4ade80"}`,color:STATS[t.stat]?.color||"#4ade80",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}} onClick={()=>completeBossTask(t.id)}>DONE</button>
                     )}
                   </div>
                 );
               })}
-
-              {won&&<div style={{textAlign:"center",padding:"14px 0",fontSize:12,color:"#4ade80",letterSpacing:2}}>⚔ BOSS DEFEATED ⚔<br/><span style={{fontSize:9,color:"#3a5a3a",display:"block",marginTop:4}}>Check Achievements for drops</span></div>}
-              {failed&&<div style={{textAlign:"center",padding:"14px 0",fontSize:12,color:"#ef4444",letterSpacing:2}}>✗ BOSS ESCAPED<br/><span style={{fontSize:9,color:"#5a3a3a",display:"block",marginTop:4}}>A new boss will come...</span></div>}
+              {won&&<div style={{textAlign:"center",padding:"14px 0",fontSize:12,color:"#4ade80",letterSpacing:2}}>⚔ BOSS DEFEATED ⚔<br/><span style={{fontSize:9,color:"#3a5a3a",display:"block",marginTop:4}}>Check Log for drops</span></div>}
+              {failed&&<div style={{textAlign:"center",padding:"14px 0",fontSize:12,color:"#ef4444",letterSpacing:2}}>✗ BOSS ESCAPED<br/><span style={{fontSize:9,color:"#5a3a3a",display:"block",marginTop:4}}>A new boss will appear...</span></div>}
             </div>
           </div>
         );
@@ -1175,12 +1146,12 @@ function App({onSignOut}){
                   {mode!=="flat"&&sg.target&&parseFloat(sg.target)>0&&(
                     <div style={{background:"rgba(0,0,0,0.3)",border:"1px solid #1e1e30",borderRadius:4,padding:"10px 11px",marginTop:4}}>
                       <label style={{...C.lbl,color:"#a78bfa",marginBottom:6}}>STARTING VALUE</label>
-                      {rec&&sg.stat==="strength"&&(<div style={{marginBottom:8}}><div style={{fontSize:9,color:"#6a8a6a",lineHeight:1.5,marginBottom:6}}>{rec.reason}</div><button onClick={()=>updateSub(idx,"startValue",String(rec.value))} style={{fontSize:9,padding:"4px 10px",border:"1px solid #4ade80",borderRadius:2,background:"rgba(74,222,128,0.08)",color:"#4ade80",cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>✓ USE RECOMMENDED: {rec.value} {sg.unit||""}</button></div>)}
+                      {rec&&(<div style={{marginBottom:8}}><div style={{fontSize:9,color:"#6a8a6a",lineHeight:1.5,marginBottom:6}}>{rec.reason}</div><button onClick={()=>updateSub(idx,"startValue",String(rec.value))} style={{fontSize:9,padding:"4px 10px",border:"1px solid #4ade80",borderRadius:2,background:"rgba(74,222,128,0.08)",color:"#4ade80",cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>✓ USE RECOMMENDED: {rec.value} {sg.unit||""}</button></div>)}
                       <input style={{...C.inp,marginBottom:0}} type="number" min="0" step="0.1" placeholder="Enter your starting value" value={sg.startValue} onChange={e=>updateSub(idx,"startValue",e.target.value)}/>
                       {previewVal!==null&&(<div style={{fontSize:9,color:"#4a4a7a",marginTop:6,display:"flex",gap:12}}><span>Day 1: <span style={{color:stat.color}}>{previewVal} {sg.unit||"reps"}</span></span><span>Final: <span style={{color:"#a78bfa"}}>{sg.target} {sg.unit||"reps"}</span></span><span>Days: <span style={{color:"#6a6a8a"}}>{totalDays}</span></span></div>)}
                     </div>
                   )}
-                  {mode==="flat"&&<div style={{fontSize:9,color:"#5a5a7a",marginTop:6,padding:"6px 9px",background:"rgba(167,139,250,0.05)",borderRadius:3,border:"1px solid #1e1e30"}}>Daily target is fixed at your goal — this is a consistency habit.</div>}
+                  {mode==="flat"&&<div style={{fontSize:9,color:"#5a5a7a",marginTop:6,padding:"6px 9px",background:"rgba(167,139,250,0.05)",borderRadius:3,border:"1px solid #1e1e30"}}>Daily target is fixed — this is a consistency habit.</div>}
                 </div>
               );
             })}
@@ -1197,7 +1168,6 @@ function App({onSignOut}){
               <div style={{fontSize:11,letterSpacing:3,color:"#a78bfa"}}>SETTINGS</div>
               <button style={{background:"none",border:"none",color:"#6a6a8a",fontSize:18,cursor:"pointer"}} onClick={()=>{playSfx("click");setModal(null);setConfirmReset(false);}}>✕</button>
             </div>
-            {/* Account info */}
             {_currentUid&&(
               <div style={{background:"rgba(74,222,128,0.05)",border:"1px solid #1a3a1a",borderRadius:4,padding:"10px 12px",marginBottom:14}}>
                 <div style={{fontSize:9,color:"#4ade80",letterSpacing:2,marginBottom:4}}>✓ HUNTER ID</div>
@@ -1222,23 +1192,6 @@ function App({onSignOut}){
           </div>
         </div>
       )}
-
-      {/* Notif prompt */}
-      {showNotifPrompt&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 36px"}}>
-          <div style={{background:"#0e0e20",border:"1px solid #3a2a6a",borderRadius:14,padding:"26px 22px",width:"100%",maxWidth:380,margin:"0 14px"}}>
-            <div style={{textAlign:"center",marginBottom:14}}>
-              <div style={{fontSize:36,marginBottom:6}}>⚔</div>
-              <div style={{fontSize:15,fontWeight:"bold",color:"#a78bfa",letterSpacing:2}}>SOLO LEVELING TRACKER</div>
-              <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:2,marginTop:3}}>WOULD LIKE TO SEND NOTIFICATIONS</div>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);}} style={{flex:1,padding:"12px",background:"none",border:"1px solid #2a2a4a",color:"#6a6a8a",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace"}}>DON'T ALLOW</button>
-              <button onClick={async()=>{playSfx("click");localStorage.setItem("sl_notif_asked","1");setShowNotifPrompt(false);const p=await Notification.requestPermission();if(p==="granted")_registerFCM();}} style={{flex:2,padding:"12px",background:"#a78bfa",border:"none",color:"#07070f",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:"'Courier New',monospace",fontWeight:"bold"}}>ALLOW</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1246,7 +1199,7 @@ function App({onSignOut}){
 // ─── BOSS TIMER ───────────────────────────────────────────────────────────────
 function BossTimer({boss,startTime,tasksDone,large=false}){
   const [ms,setMs]=useState(Math.max(0,boss.timeLimitMs-(Date.now()-startTime)));
-  useEffect(()=>{const iv=setInterval(()=>setMs(m=>Math.max(0,boss.timeLimitMs-(Date.now()-startTime))),1000);return()=>clearInterval(iv);},[startTime,boss.timeLimitMs]);
+  useEffect(()=>{const iv=setInterval(()=>setMs(Math.max(0,boss.timeLimitMs-(Date.now()-startTime))),1000);return()=>clearInterval(iv);},[startTime,boss.timeLimitMs]);
   const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000);
   const str=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   const urgent=ms<600000;
@@ -1278,12 +1231,13 @@ function CardPick({card,selected,onSelect,delay}){
   );
 }
 
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({activeTasks,completedTasks,allTasks,onComplete,onFail,rc,C,onSpawnBoss,activeBoss,nextBossSpawnTime}){
   const groups={};
   activeTasks.forEach(t=>{if(!groups[t.questId])groups[t.questId]={title:t.questTitle,accent:t.accent,tasks:[]};groups[t.questId].tasks.push(t);});
   const bossActive=activeBoss&&!activeBoss.failed&&!activeBoss.won;
-  const [bossCountdown,setBossCountdown]=React.useState("");
-  React.useEffect(()=>{
+  const [bossCountdown,setBossCountdown]=useState("");
+  useEffect(()=>{
     const iv=setInterval(()=>{
       const ms=Math.max(0,(nextBossSpawnTime||0)-Date.now());
       const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000);
@@ -1294,13 +1248,12 @@ function Dashboard({activeTasks,completedTasks,allTasks,onComplete,onFail,rc,C,o
   return(
     <div>
       <div style={C.sysMsg}>▶ Complete your daily trials before midnight. The system watches.</div>
-      {/* Boss Spawn Panel */}
       {!bossActive&&(
         <div style={{background:"rgba(239,68,68,0.05)",border:"1px solid #3a1a1a",borderRadius:5,padding:"12px 14px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:9,color:"#ef4444",letterSpacing:2,marginBottom:4}}>⚔ BOSS ENCOUNTER</div>
-              <div style={{fontSize:10,color:"#5a5a7a",lineHeight:1.5}}>A boss will appear at a random time. Be ready.</div>
+              <div style={{fontSize:10,color:"#5a5a7a",lineHeight:1.5}}>A boss will appear at a random time.</div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:8,color:"#3a3a5a",letterSpacing:1,marginBottom:2}}>NEXT BOSS IN</div>
@@ -1372,12 +1325,11 @@ function StatsView({statXP,hunter,achievements,rc,C}){
         <div style={{fontSize:11,color:"#5a5a7a",marginTop:4}}>{hunter.xp.toLocaleString()} XP · {hunter.streak} day streak</div>
         <div style={{fontSize:8,color:"#3a3a5a",marginTop:3,letterSpacing:1}}>Next rank at {RANK_THRESHOLDS[RANKS.indexOf(ovRank)+1]?.toLocaleString()||"MAX"} XP</div>
       </div>
-      {/* Active buffs */}
       {achievements.length>0&&(()=>{
         const buffs={};
         achievements.forEach(id=>{
           let a=ACHIEVEMENT_CATALOG.find(a=>a.id===id);
-          if(!a)BOSSES.forEach(b=>{if(b.achievementDrop?.id===id)a=b.achievementDrop;});
+          if(!a)BOSSES.forEach(b=>{if(b.achDrop?.id===id)a=b.achDrop;});
           if(a?.buff){if(!buffs[a.buff.stat])buffs[a.buff.stat]=0;buffs[a.buff.stat]+=a.buff.pct;}
         });
         const entries=Object.entries(buffs);
@@ -1451,25 +1403,81 @@ function QuestsView({quests,dailyTasks,rc,C}){
   );
 }
 
+// ─── BOSSES VIEW (new) ────────────────────────────────────────────────────────
+function BossesView({bosses,bossesDefeated,activeBoss,onSpawnBoss,onViewBoss,C,rc}){
+  const [filter,setFilter]=useState("all");
+  const tiers=["all","common","uncommon","rare","epic","legendary","mythic"];
+  const tierColors={all:rc,common:"#888",uncommon:"#4ade80",rare:"#60a5fa",epic:"#a78bfa",legendary:"#f59e0b",mythic:"#ec4899"};
+  const filtered=filter==="all"?bosses:bosses.filter(b=>b.tier===filter);
+  const bossActive=activeBoss&&!activeBoss.failed&&!activeBoss.won;
+
+  return(
+    <div>
+      <div style={C.sysMsg}>▶ Boss compendium. {bossesDefeated.length}/{bosses.length} defeated.</div>
+      <div style={{display:"flex",gap:4,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
+        {tiers.map(t=>(
+          <button key={t} onClick={()=>setFilter(t)} style={{padding:"4px 10px",background:filter===t?`rgba(${hexToRgb(tierColors[t]||rc)},0.2)`:"none",border:`1px solid ${filter===t?(tierColors[t]||rc):"#2a2a4a"}`,color:filter===t?(tierColors[t]||rc):"#4a4a6a",borderRadius:3,fontSize:9,cursor:"pointer",letterSpacing:1,fontFamily:"'Courier New',monospace",whiteSpace:"nowrap",textTransform:"uppercase"}}>{t}</button>
+        ))}
+      </div>
+      <div style={{display:"grid",gap:10}}>
+        {filtered.map(boss=>{
+          const defeated=bossesDefeated.includes(boss.id);
+          const isActive=activeBoss?.bossId===boss.id&&!activeBoss.failed&&!activeBoss.won;
+          const tier=TIERS[boss.tier];
+          return(
+            <div key={boss.id} style={{background:isActive?boss.bgColor:defeated?"rgba(74,222,128,0.04)":tier.bg,border:`1px solid ${isActive?boss.color:defeated?"#1a3a1a":tier.border}`,borderRadius:5,padding:"12px 13px",boxShadow:isActive?`0 0 12px ${boss.color}44`:tier.glow,opacity:defeated&&!isActive?0.7:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <BossSprite type={boss.sprite} size={40}/>
+                  <div>
+                    <div style={{fontSize:8,color:tier.color,letterSpacing:2}}>{tier.label}</div>
+                    <div style={{fontSize:12,fontWeight:"bold",color:isActive?boss.color:defeated?"#4ade80":"#e0d8cc"}}>{boss.name}</div>
+                    <div style={{fontSize:9,color:"#4a4a6a"}}>{boss.subtitle}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:10,color:"#a78bfa",fontWeight:"bold"}}>+{boss.xpReward} XP</div>
+                  <div style={{fontSize:8,color:"#3a3a5a"}}>{boss.timeLimitMs/3600000}h limit</div>
+                  {defeated&&<div style={{fontSize:9,color:"#4ade80",marginTop:3}}>✓ DEFEATED</div>}
+                  {isActive&&<div style={{fontSize:9,color:boss.color,marginTop:3}}>⚔ ACTIVE</div>}
+                </div>
+              </div>
+              <div style={{fontSize:9,color:"#4a4a6a",marginBottom:8}}>{boss.tasks.length} tasks · {boss.titleDrop?`Title: "${boss.titleDrop}" (5%)`:""} {boss.achDrop?`· Ach: "${boss.achDrop.name}" (5%)`:""}</div>
+              {isActive?(
+                <button onClick={onViewBoss} style={{width:"100%",padding:"7px",border:`1px solid ${boss.color}`,borderRadius:3,background:`rgba(${hexToRgb(boss.color)},0.1)`,color:boss.color,fontSize:10,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>VIEW ACTIVE BOSS →</button>
+              ):!bossActive&&!defeated?(
+                <button onClick={()=>onSpawnBoss(boss.tier)} style={{width:"100%",padding:"7px",border:"1px solid #3a3a5a",borderRadius:3,background:"rgba(0,0,0,0.3)",color:"#6a6a8a",fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1}}>CHALLENGE (RANDOM {boss.tier.toUpperCase()})</button>
+              ):null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── ACHIEVEMENTS VIEW ────────────────────────────────────────────────────────
-function AchieveView({achievements,titles,equippedTitle,onEquipTitle,C,rc}){
+function AchieveView({achievements,titles,equippedTitle,onEquipTitle,C,rc,bossesDefeated}){
   const [tab,setTab]=useState("achievements");
   const unlocked=new Set(achievements);
-  const allAch=[...ACHIEVEMENT_CATALOG,...BOSSES.map(b=>b.achievementDrop).filter(Boolean)];
+  const allAch=[...ACHIEVEMENT_CATALOG,...BOSSES.map(b=>b.achDrop).filter(Boolean)];
+  // Dedupe
+  const seen=new Set();
+  const dedupedAch=allAch.filter(a=>{if(seen.has(a.id))return false;seen.add(a.id);return true;});
+
   return(
     <div>
       <div style={{display:"flex",gap:0,marginBottom:14,border:"1px solid #2a2a4a",borderRadius:4,overflow:"hidden"}}>
         {["achievements","titles"].map(t=><button key={t} onClick={()=>{playSfx("click");setTab(t);}} style={{flex:1,padding:"8px",background:tab===t?"rgba(167,139,250,0.15)":"none",border:"none",borderRight:t!=="titles"?"1px solid #2a2a4a":"none",color:tab===t?"#a78bfa":"#3a3a5a",fontSize:9,letterSpacing:2,cursor:"pointer",textTransform:"uppercase",fontFamily:"'Courier New',monospace"}}>{t}</button>)}
       </div>
-
       {tab==="achievements"&&(
         <div>
-          <div style={C.sysMsg}>▶ Hidden achievements. Unlock them to gain permanent buffs.</div>
-          <div style={{fontSize:10,color:"#4a4a6a",marginBottom:10}}>{achievements.length}/{allAch.length} unlocked</div>
-          {allAch.map(a=>{
+          <div style={C.sysMsg}>▶ Unlock achievements to gain permanent XP buffs.</div>
+          <div style={{fontSize:10,color:"#4a4a6a",marginBottom:10}}>{achievements.length}/{dedupedAch.length} unlocked</div>
+          {dedupedAch.map(a=>{
             const done=unlocked.has(a.id);
             return(
-              <div key={a.id} className={done?"achieve-pop":""} style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:8,background:done?"rgba(167,139,250,0.08)":"rgba(0,0,0,0.2)",border:`1px solid ${done?"#3a2a5a":"#1e1e2a"}`,borderRadius:4,opacity:done?1:0.45,transition:"all 0.2s"}}>
+              <div key={a.id} style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:8,background:done?"rgba(167,139,250,0.08)":"rgba(0,0,0,0.2)",border:`1px solid ${done?"#3a2a5a":"#1e1e2a"}`,borderRadius:4,opacity:done?1:0.45,transition:"all 0.2s"}}>
                 <div style={{fontSize:22,width:30,textAlign:"center",flexShrink:0}}>{done?a.icon||"🏆":"🔒"}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,color:done?"#e0d8cc":"#3a3a5a",fontWeight:done?"bold":"normal"}}>{done?a.name:"???"}</div>
@@ -1482,20 +1490,21 @@ function AchieveView({achievements,titles,equippedTitle,onEquipTitle,C,rc}){
           })}
         </div>
       )}
-
       {tab==="titles"&&(
         <div>
-          <div style={C.sysMsg}>▶ Defeat bosses to earn titles. Equip one to display it.</div>
+          <div style={C.sysMsg}>▶ Defeat bosses to earn titles (5% drop). Equip one to display it.</div>
           <div style={{fontSize:10,color:"#4a4a6a",marginBottom:10}}>{titles.length}/{ALL_TITLES.length} unlocked</div>
-          {ALL_TITLES.map((t,idx)=>{
+          {ALL_TITLES.map(t=>{
             const owned=titles.includes(t);
             const equipped=equippedTitle===t;
+            const bonus=TITLE_BONUSES[t];
             return(
-              <div key={t} className={owned?"achieve-pop":""} style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:8,background:equipped?"rgba(245,158,11,0.1)":owned?"rgba(167,139,250,0.06)":"rgba(0,0,0,0.2)",border:`1px solid ${equipped?"#f59e0b":owned?"#3a2a5a":"#1e1e2a"}`,borderRadius:4,opacity:owned?1:0.4,transition:"all 0.2s",alignItems:"center"}}>
+              <div key={t} style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:8,background:equipped?"rgba(245,158,11,0.1)":owned?"rgba(167,139,250,0.06)":"rgba(0,0,0,0.2)",border:`1px solid ${equipped?"#f59e0b":owned?"#3a2a5a":"#1e1e2a"}`,borderRadius:4,opacity:owned?1:0.4,transition:"all 0.2s",alignItems:"center"}}>
                 <div style={{fontSize:22,width:30,textAlign:"center",flexShrink:0}}>{owned?"👑":"🔒"}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,color:equipped?"#f59e0b":owned?"#e0d8cc":"#3a3a5a",fontWeight:equipped||owned?"bold":"normal"}}>{owned?t:"???"}</div>
-                  <div style={{fontSize:9,color:owned?"#5a5a7a":"#2a2a3a",marginTop:2}}>{owned?(equipped?"Currently equipped":"Defeat bosses to drop titles at 5% chance"):"Complete boss battles to unlock titles"}</div>
+                  {owned&&bonus&&<div style={{fontSize:9,color:"#4ade80",marginTop:2}}>{bonus}</div>}
+                  {!owned&&<div style={{fontSize:9,color:"#2a2a3a",marginTop:2}}>Defeat bosses to unlock titles at 5% drop rate</div>}
                   {equipped&&<div style={{fontSize:9,color:"#f59e0b",marginTop:2}}>✦ EQUIPPED</div>}
                 </div>
                 {owned&&<button onClick={()=>onEquipTitle(t)} style={{padding:"5px 12px",border:`1px solid ${equipped?"#f59e0b":"#3a3a5a"}`,borderRadius:3,background:equipped?"rgba(245,158,11,0.2)":"none",color:equipped?"#f59e0b":"#5a5a7a",fontSize:9,cursor:"pointer",fontFamily:"'Courier New',monospace",letterSpacing:1,flexShrink:0}}>{equipped?"UNEQUIP":"EQUIP"}</button>}
@@ -1504,49 +1513,43 @@ function AchieveView({achievements,titles,equippedTitle,onEquipTitle,C,rc}){
           })}
         </div>
       )}
-
     </div>
   );
 }
 
-// ─── LOG VIEW ────────────────────────────────────────────────────────────────
-function LogView({notifications,log,C}){
-  const notifEntries=(notifications||[]).map(n=>({
-    id:n.id+"n", time:n.id, msg:n.msg, type:n.type, timeStr:n.time
-  }));
-  const logEntries=(log||[]).map(l=>({
-    id:l.id+"l", time:l.id, msg:l.text, type:"log", timeStr:l.time
-  }));
-  const merged=[...notifEntries,...logEntries].sort((a,b)=>b.time-a.time).slice(0,60);
-
-  function dot(type){
-    if(type==="penalty") return "#ef4444";
-    if(type==="boss")    return "#f59e0b";
-    if(type==="reward")  return "#4ade80";
-    if(type==="quest")   return "#a78bfa";
-    return "#3a3a5a";
+// ─── LOG VIEW ─────────────────────────────────────────────────────────────────
+function LogView({log,C}){
+  function dot(text){
+    if(text?.startsWith("💀")||text?.startsWith("✗"))return"#ef4444";
+    if(text?.startsWith("⚔")||text?.startsWith("🏆"))return"#f59e0b";
+    if(text?.startsWith("✓"))return"#4ade80";
+    if(text?.startsWith("📋")||text?.startsWith("⬆"))return"#a78bfa";
+    if(text?.startsWith("🔄"))return"#06b6d4";
+    if(text?.startsWith("✨")||text?.startsWith("👑"))return"#f59e0b";
+    if(text?.startsWith("⚠"))return"#f97316";
+    return"#3a3a5a";
   }
-  function bg(type){
-    if(type==="penalty") return{bg:"rgba(239,68,68,0.07)",   border:"#3a1a1a"};
-    if(type==="boss")    return{bg:"rgba(245,158,11,0.07)",  border:"#4a3a00"};
-    if(type==="reward")  return{bg:"rgba(74,222,128,0.07)",  border:"#1a3a1a"};
-    if(type==="quest")   return{bg:"rgba(167,139,250,0.07)", border:"#2a1a4a"};
-    return               {bg:"rgba(255,255,255,0.02)",       border:"#1e1e35"};
+  function bg(text){
+    if(text?.startsWith("💀")||text?.startsWith("✗"))return{bg:"rgba(239,68,68,0.07)",border:"#3a1a1a"};
+    if(text?.startsWith("⚔")||text?.startsWith("🏆"))return{bg:"rgba(245,158,11,0.07)",border:"#4a3a00"};
+    if(text?.startsWith("✓"))return{bg:"rgba(74,222,128,0.07)",border:"#1a3a1a"};
+    if(text?.startsWith("📋")||text?.startsWith("⬆"))return{bg:"rgba(167,139,250,0.07)",border:"#2a1a4a"};
+    if(text?.startsWith("🔄"))return{bg:"rgba(6,182,212,0.06)",border:"#0a2a2a"};
+    if(text?.startsWith("⚠"))return{bg:"rgba(249,115,22,0.07)",border:"#3a1a00"};
+    return{bg:"rgba(255,255,255,0.02)",border:"#1e1e35"};
   }
-
   return(
     <div>
-      <div style={C.sysMsg}>▶ Dungeon Activity Log</div>
-
-      {merged.length===0&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
-      {merged.map(e=>{
-        const s=bg(e.type);
+      <div style={C.sysMsg}>▶ Dungeon System Log — all events recorded here.</div>
+      {(!log||log.length===0)&&<div style={{color:"#3a3a5a",fontSize:12,textAlign:"center",padding:36}}>No activity yet.</div>}
+      {(log||[]).map(e=>{
+        const s=bg(e.text);
         return(
           <div key={e.id} style={{background:s.bg,border:`1px solid ${s.border}`,borderRadius:4,padding:"9px 11px",marginBottom:6,display:"flex",gap:10,alignItems:"flex-start"}}>
-            <div style={{width:6,height:6,borderRadius:"50%",background:dot(e.type),marginTop:4,flexShrink:0}}/>
+            <div style={{width:6,height:6,borderRadius:"50%",background:dot(e.text),marginTop:4,flexShrink:0}}/>
             <div style={{flex:1}}>
-              <div style={{fontSize:11,color:"#e0d8cc",lineHeight:1.4}}>{e.msg}</div>
-              <div style={{fontSize:9,color:"#3a3a5a",marginTop:3}}>{e.timeStr}</div>
+              <div style={{fontSize:11,color:"#e0d8cc",lineHeight:1.4}}>{e.text}</div>
+              <div style={{fontSize:9,color:"#3a3a5a",marginTop:3}}>{e.time}</div>
             </div>
           </div>
         );
@@ -1555,43 +1558,17 @@ function LogView({notifications,log,C}){
   );
 }
 
-// ── Auth-gated boot ───────────────────────────────────────────────────────────
-// Hunter ID login screen
+// ── Auth screens ──────────────────────────────────────────────────────────────
 function LoginScreen(){
-  const [mode,setMode]=React.useState("home"); // home | login | register | registered
-  const [inputId,setInputId]=React.useState("");
-  const [newId,setNewId]=React.useState("");
-  const [err,setErr]=React.useState("");
-  const [loading,setLoading]=React.useState(false);
-
-  async function handleLogin(){
-    setErr(""); setLoading(true);
-    try{
-      await signInWithHunterId(inputId);
-      await restoreGameStateFromUid(_currentUid);
-      ReactDOM.render(<App onSignOut={handleSignOut}/>, document.getElementById("root"));
-    }catch(e){ setErr(e.message); setLoading(false); }
-  }
-
-  async function handleRegister(){
-    setErr(""); setLoading(true);
-    try{
-      const id=await createNewHunter();
-      setNewId(id);
-      setMode("registered");
-      setLoading(false);
-    }catch(e){ setErr(e.message); setLoading(false); }
-  }
-
-  async function handleContinueAfterRegister(){
-    ReactDOM.render(<App onSignOut={handleSignOut}/>, document.getElementById("root"));
-  }
-
-  async function handleSignOut(){
-    await signOut();
-    ReactDOM.render(<LoginScreen/>, document.getElementById("root"));
-  }
-
+  const [mode,setMode]=useState("home");
+  const [inputId,setInputId]=useState("");
+  const [newId,setNewId]=useState("");
+  const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(false);
+  async function handleLogin(){setErr("");setLoading(true);try{await signInWithHunterId(inputId);await restoreGameStateFromUid(_currentUid);ReactDOM.render(<App onSignOut={handleSignOut}/>,document.getElementById("root"));}catch(e){setErr(e.message);setLoading(false);}}
+  async function handleRegister(){setErr("");setLoading(true);try{const id=await createNewHunter();setNewId(id);setMode("registered");setLoading(false);}catch(e){setErr(e.message);setLoading(false);}}
+  async function handleContinueAfterRegister(){ReactDOM.render(<App onSignOut={handleSignOut}/>,document.getElementById("root"));}
+  async function handleSignOut(){await signOut();ReactDOM.render(<LoginScreen/>,document.getElementById("root"));}
   const s={
     wrap:{minHeight:"100vh",background:"#07070f",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Courier New',monospace",padding:"0 24px"},
     inner:{textAlign:"center",maxWidth:340,width:"100%",position:"relative",zIndex:2},
@@ -1607,80 +1584,22 @@ function LoginScreen(){
     idText:{fontSize:22,fontWeight:"bold",color:"#a78bfa",letterSpacing:3},
     warn:{fontSize:10,color:"#facc15",lineHeight:1.7,marginTop:10},
   };
-
-  if(mode==="registered") return(
-    <div style={s.wrap}>
-      <div style={s.inner}>
-        <div style={{fontSize:48,marginBottom:12}}>🎉</div>
-        <div style={s.title}>HUNTER REGISTERED</div>
-        <div style={s.sub}>YOUR HUNTER ID</div>
-        <div style={s.idBox}>
-          <div style={s.idText}>{newId}</div>
-          <div style={s.warn}>⚠ SAVE THIS ID NOW<br/>Screenshot or write it down.<br/>This is the only way to recover your account.</div>
-        </div>
-        <button style={s.btn} onClick={handleContinueAfterRegister}>ENTER THE DUNGEON →</button>
-      </div>
-    </div>
-  );
-
-  if(mode==="login") return(
-    <div style={s.wrap}>
-      <div style={s.inner}>
-        <div style={{fontSize:48,marginBottom:12}}>🔑</div>
-        <div style={s.title}>RETURNING HUNTER</div>
-        <div style={s.sub}>ENTER YOUR ID</div>
-        <div style={s.box}>
-          <label style={s.label}>HUNTER ID</label>
-          <input style={s.input} value={inputId} onChange={e=>setInputId(e.target.value)} placeholder="SHADOW-4729" maxLength={20}/>
-          {err&&<div style={s.err}>{err}</div>}
-        </div>
-        <button style={{...s.btn,opacity:loading?0.6:1}} disabled={loading} onClick={handleLogin}>{loading?"LOADING...":"ENTER DUNGEON"}</button>
-        <button style={s.btnGhost} onClick={()=>{setMode("home");setErr("");}}>← BACK</button>
-      </div>
-    </div>
-  );
-
-  return(
-    <div style={s.wrap}>
-      <div style={s.inner}>
-        <div style={{fontSize:64,marginBottom:16,filter:"drop-shadow(0 0 20px #a78bfa)"}}>⚔</div>
-        <div style={{fontSize:9,color:"#3a3a5a",letterSpacing:4,marginBottom:6}}>SYSTEM INITIALIZING</div>
-        <div style={s.title}>SOLO LEVELING</div>
-        <div style={s.sub}>TRACKER</div>
-        <div style={{...s.box,textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#6a5a8a",lineHeight:1.8}}>Your Hunter ID permanently links your progress. Survives reinstalls &amp; device changes.</div>
-        </div>
-        <button style={s.btn} onClick={handleRegister} disabled={loading}>{loading?"CREATING...":"CREATE NEW HUNTER"}</button>
-        <button style={s.btnGhost} onClick={()=>setMode("login")}>I HAVE A HUNTER ID</button>
-        <div style={{fontSize:9,color:"#2a2a3a",marginTop:16,letterSpacing:1}}>NO ACCOUNT · NO PASSWORD · FULLY FREE</div>
-      </div>
-    </div>
-  );
+  if(mode==="registered")return(<div style={s.wrap}><div style={s.inner}><div style={{fontSize:48,marginBottom:12}}>🎉</div><div style={s.title}>HUNTER REGISTERED</div><div style={s.sub}>YOUR HUNTER ID</div><div style={s.idBox}><div style={s.idText}>{newId}</div><div style={s.warn}>⚠ SAVE THIS ID NOW<br/>Screenshot or write it down.<br/>This is the only way to recover your account.</div></div><button style={s.btn} onClick={handleContinueAfterRegister}>ENTER THE DUNGEON →</button></div></div>);
+  if(mode==="login")return(<div style={s.wrap}><div style={s.inner}><div style={{fontSize:48,marginBottom:12}}>🔑</div><div style={s.title}>RETURNING HUNTER</div><div style={s.sub}>ENTER YOUR ID</div><div style={s.box}><label style={s.label}>HUNTER ID</label><input style={s.input} value={inputId} onChange={e=>setInputId(e.target.value)} placeholder="SHADOW-4729" maxLength={20}/>{err&&<div style={s.err}>{err}</div>}</div><button style={{...s.btn,opacity:loading?0.6:1}} disabled={loading} onClick={handleLogin}>{loading?"LOADING...":"ENTER DUNGEON"}</button><button style={s.btnGhost} onClick={()=>{setMode("home");setErr("");}}>← BACK</button></div></div>);
+  return(<div style={s.wrap}><div style={s.inner}><div style={{fontSize:64,marginBottom:16,filter:"drop-shadow(0 0 20px #a78bfa)"}}>⚔</div><div style={{fontSize:9,color:"#3a3a5a",letterSpacing:4,marginBottom:6}}>SYSTEM INITIALIZING</div><div style={s.title}>SOLO LEVELING</div><div style={s.sub}>TRACKER</div><div style={{...s.box,textAlign:"center"}}><div style={{fontSize:10,color:"#6a5a8a",lineHeight:1.8}}>Your Hunter ID permanently links your progress across devices.</div></div><button style={s.btn} onClick={handleRegister} disabled={loading}>{loading?"CREATING...":"CREATE NEW HUNTER"}</button><button style={s.btnGhost} onClick={()=>setMode("login")}>I HAVE A HUNTER ID</button><div style={{fontSize:9,color:"#2a2a3a",marginTop:16,letterSpacing:1}}>NO ACCOUNT · NO PASSWORD · FULLY FREE</div></div></div>);
 }
 
-function LoadingScreen({message}){
-  return(
-    <div style={{minHeight:"100vh",background:"#07070f",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Courier New',monospace"}}>
-      <div style={{fontSize:36,marginBottom:16,animation:"glowPulse 1.5s ease-in-out infinite"}}>⚔</div>
-      <div style={{fontSize:9,color:"#a78bfa",letterSpacing:3}}>{message||"LOADING..."}</div>
-    </div>
-  );
-}
+function LoadingScreen({message}){return(<div style={{minHeight:"100vh",background:"#07070f",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Courier New',monospace"}}><div style={{fontSize:36,marginBottom:16}}>⚔</div><div style={{fontSize:9,color:"#a78bfa",letterSpacing:3}}>{message||"LOADING..."}</div></div>);}
 
-// Boot sequence
+// Boot
 (async()=>{
-  const savedId = localStorage.getItem("sl_user_id");
+  const savedId=localStorage.getItem("sl_user_id");
   if(savedId){
-    _currentUid = savedId;
-    const hasLocal = !!localStorage.getItem("sl_v7");
-    if(!hasLocal){
-      ReactDOM.render(<LoadingScreen message="RESTORING YOUR DATA..."/>, document.getElementById("root"));
-      await restoreGameStateFromUid(savedId);
-    }
-    ReactDOM.render(<App onSignOut={async()=>{ await signOut(); ReactDOM.render(<LoginScreen/>, document.getElementById("root")); }}/>, document.getElementById("root"));
-  } else {
-    ReactDOM.render(<LoginScreen/>, document.getElementById("root"));
-  }
+    _currentUid=savedId;
+    const hasLocal=!!localStorage.getItem("sl_v8");
+    if(!hasLocal){ReactDOM.render(<LoadingScreen message="RESTORING YOUR DATA..."/>,document.getElementById("root"));await restoreGameStateFromUid(savedId);}
+    ReactDOM.render(<App onSignOut={async()=>{await signOut();ReactDOM.render(<LoginScreen/>,document.getElementById("root"));}}/>,document.getElementById("root"));
+  }else{ReactDOM.render(<LoginScreen/>,document.getElementById("root"));}
 })();
 </script>
 </body>
